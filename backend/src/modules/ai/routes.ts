@@ -2,12 +2,13 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { AIController } from './controller';
 import { RagController } from './rag/controller';
+import { authenticate } from '../../middleware/auth';
 
 const router = Router();
 
 const upload = multer({ dest: 'uploads/' });
 
-router.post('/generate', AIController.generate);
+router.post('/generate', authenticate, AIController.generate);
 
 router.post('/rag/ingest', upload.single('file'), RagController.ingest);
 

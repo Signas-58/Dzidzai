@@ -7,6 +7,7 @@ export interface AIGenerateRequest {
   topic: string;
   gradeLevel: GradeLevel;
   language: SupportedLanguage;
+  childId?: string;
 }
 
 export interface RagIngestRequest {

@@ -1,16 +1,23 @@
 # Node / JS
 **/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
 
 # Next.js
 frontend/.next/
 frontend/out/
 frontend/.vercel/
 
+# Build output
+backend/dist/
+frontend/.next/
+
 # Logs
 **/logs/
 **/*.log
 
-# Env files
+# Environment
 backend/.env
 frontend/.env
 frontend/.env.local

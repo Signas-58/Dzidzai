@@ -3,6 +3,7 @@ import { AIService } from './aiService';
 import { AIGenerateRequest, Subject, SupportedLanguage, GradeLevel } from './types';
 import { AIValidationError } from './validators';
 import { logger } from '../../utils/logger';
+import { prisma } from '../../config/prisma';
 
 function isSubject(v: unknown): v is Subject {
   return v === 'Math' || v === 'English' || v === 'Science' || v === 'Social Studies';
@@ -29,7 +30,7 @@ function isGradeLevel(v: unknown): v is GradeLevel {
 export class AIController {
   static async generate(req: Request, res: Response): Promise<void> {
     try {
-      const { subject, topic, gradeLevel, language } = req.body as Partial<AIGenerateRequest>;
+      const { subject, topic, gradeLevel, language, childId } = req.body as Partial<AIGenerateRequest>;
 
       if (!isSubject(subject)) {
         res.status(400).json({ success: false, error: 'Invalid subject' });
@@ -57,6 +58,34 @@ export class AIController {
         gradeLevel,
         language,
       });
+
+      if (req.user?.id) {
+        try {
+          const idempotencyKeyHeader = req.header('Idempotency-Key');
+          const idempotencyKey = idempotencyKeyHeader && idempotencyKeyHeader.trim() ? idempotencyKeyHeader.trim() : null;
+
+          await prisma.learningActivity.create({
+            data: {
+              userId: req.user.id,
+              childId: childId && typeof childId === 'string' ? childId : null,
+              idempotencyKey,
+              subject,
+              topic: topic.trim(),
+              gradeLevel,
+              language,
+              confidenceScore: result.confidenceScore,
+            },
+          });
+        } catch (logErr) {
+          const msg = logErr instanceof Error ? logErr.message : String(logErr);
+          const isUnique = msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('constraint');
+          if (isUnique) {
+            logger.info('LearningActivity deduplicated by idempotencyKey');
+          } else {
+            logger.warn('Failed to persist LearningActivity', logErr);
+          }
+        }
+      }
 
       res.status(200).json({
         success: true,

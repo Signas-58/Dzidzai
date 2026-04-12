@@ -25,6 +25,7 @@ export async function apiFetch<T>(
     body?: unknown;
     token?: string;
     signal?: AbortSignal;
+    headers?: Record<string, string>;
   }
 ): Promise<T> {
   const res = await fetch(path.startsWith('/api') ? path : `/api${path}`, {
@@ -32,6 +33,7 @@ export async function apiFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       ...(options?.token ? { Authorization: `Bearer ${options.token}` } : {}),
+      ...(options?.headers ? options.headers : {}),
     },
     body: options?.body ? JSON.stringify(options.body) : undefined,
     signal: options?.signal,

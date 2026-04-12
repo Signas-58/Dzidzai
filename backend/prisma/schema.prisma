@@ -24,6 +24,7 @@ model User {
   // Relations
   children Child[]
   sessions Session[]
+  learningActivities LearningActivity[]
 
   @@map("users")
 }
@@ -40,8 +41,30 @@ model Child {
   // Relations
   parent User @relation(fields: [parentId], references: [id], onDelete: Cascade)
   progress UserProgress[]
+  learningActivities LearningActivity[]
 
   @@map("children")
+}
+
+model LearningActivity {
+  id              String   @id @default(cuid())
+  userId          String
+  childId         String?
+  idempotencyKey  String?  @unique
+  subject         String
+  topic           String
+  gradeLevel      String
+  language        String
+  confidenceScore Float
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child Child? @relation(fields: [childId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([childId, createdAt])
+  @@map("learning_activities")
 }
 
 model Session {
