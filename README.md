@@ -76,4 +76,4 @@ dzidza-ai/
 
 ## License
 
-MIT License
+HAPANA BUT NDOKUSUNGISA
