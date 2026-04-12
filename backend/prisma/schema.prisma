@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("PARENT")
+  firstName String
+  lastName  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  children Child[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+model Child {
+  id               String    @id @default(cuid())
+  name             String
+  gradeLevel       Int       // 0-8 (ECD A, ECD B, Grade 1-7)
+  preferredLanguage String   @default("SHONA")
+  parentId         String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  parent User @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  progress UserProgress[]
+
+  @@map("children")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model UserProgress {
+  id          String   @id @default(cuid())
+  userId      String   // This will be the child's ID
+  lessonId    String
+  completed   Boolean  @default(false)
+  score       Int?
+  timeSpent   Int      @default(0) // in seconds
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  child Child @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_progress")
+}

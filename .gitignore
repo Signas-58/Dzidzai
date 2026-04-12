@@ -1,0 +1,30 @@
+# Node / JS
+**/node_modules/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# Logs
+**/logs/
+**/*.log
+
+# Env files
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.*
+
+# Prisma / local DB
+backend/dev.db
+backend/prisma/dev.db
+backend/prisma/*.db
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Cache
+.cache/
