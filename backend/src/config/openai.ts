@@ -25,6 +25,20 @@ class OpenAIClient {
     return this.client;
   }
 
+  async embed(text: string, options?: { model?: string }): Promise<number[]> {
+    const client = this.ensureClient();
+    const model = options?.model || process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+    const res = await client.embeddings.create({
+      model,
+      input: text,
+    });
+    const vec = res.data?.[0]?.embedding;
+    if (!vec) {
+      throw new Error('No embedding returned from provider');
+    }
+    return vec;
+  }
+
   async generateContent(prompt: string, options?: {
     maxTokens?: number;
     temperature?: number;

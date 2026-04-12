@@ -27,21 +27,21 @@ class PrismaService {
         ],
       });
 
-      PrismaService.instance.$on('query', (e: any) => {
+      (PrismaService.instance as any).$on('query', (e: any) => {
         logger.debug('Query: ' + e.query);
         logger.debug('Params: ' + e.params);
         logger.debug('Duration: ' + e.duration + 'ms');
       });
 
-      PrismaService.instance.$on('error', (e: any) => {
+      (PrismaService.instance as any).$on('error', (e: any) => {
         logger.error('Prisma error: ' + e.message);
       });
 
-      PrismaService.instance.$on('info', (e: any) => {
+      (PrismaService.instance as any).$on('info', (e: any) => {
         logger.info('Prisma info: ' + e.message);
       });
 
-      PrismaService.instance.$on('warn', (e: any) => {
+      (PrismaService.instance as any).$on('warn', (e: any) => {
         logger.warn('Prisma warning: ' + e.message);
       });
     }

@@ -9,6 +9,11 @@ export interface AIGenerateRequest {
   language: SupportedLanguage;
 }
 
+export interface RagIngestRequest {
+  subject: Subject;
+  topic?: string;
+}
+
 export interface AIPracticeQuestion {
   question: string;
   hint: string;

@@ -16,7 +16,7 @@
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply px-4 py-2.5 rounded-md font-medium leading-6 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
   
   .btn-primary {
@@ -36,11 +36,41 @@
   }
   
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500;
+    @apply w-full px-3 py-2.5 leading-6 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500;
   }
   
   .label {
     @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+}
+
+@layer utilities {
+  .hover-glow {
+    @apply transition-all duration-200 ease-out hover:-translate-y-2 hover:scale-[1.05];
+    box-shadow:
+      0 32px 90px -28px rgba(59, 130, 246, 0.95),
+      0 0 0 10px rgba(59, 130, 246, 0.14),
+      0 0 40px rgba(59, 130, 246, 0.35);
+  }
+
+  .hover-glow-accent {
+    @apply transition-all duration-200 ease-out hover:-translate-y-2 hover:scale-[1.05];
+    box-shadow:
+      0 32px 90px -28px rgba(217, 70, 239, 0.95),
+      0 0 0 10px rgba(217, 70, 239, 0.14),
+      0 0 42px rgba(217, 70, 239, 0.35);
+  }
+
+  .btn-glow {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  .btn-glow:hover {
+    transform: translateY(-4px) scale(1.06);
+    box-shadow:
+      0 38px 110px -38px rgba(59, 130, 246, 1),
+      0 0 0 14px rgba(59, 130, 246, 0.22),
+      0 0 55px rgba(59, 130, 246, 0.55);
   }
 }
 

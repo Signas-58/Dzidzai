@@ -1,63 +1,93 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, AuthTokens } from '../../../../shared/types';
+import { me as meApi, login as loginApi, register as registerApi, AuthResponse, BackendRole, BackendUser, BackendTokens } from '../../lib/authApi';
 
 interface AuthContextType {
-  user: User | null;
-  tokens: AuthTokens | null;
+  user: BackendUser | null;
+  tokens: BackendTokens | null;
+  role: BackendRole | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (userData: any) => Promise<void>;
+  register: (userData: { email: string; password: string; firstName: string; lastName: string; role: BackendRole }) => Promise<void>;
   logout: () => void;
+  refreshProfile: () => Promise<void>;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [tokens, setTokens] = useState<AuthTokens | null>(null);
+  const [user, setUser] = useState<BackendUser | null>(null);
+  const [tokens, setTokens] = useState<BackendTokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing tokens on mount
-    const storedTokens = localStorage.getItem('authTokens');
-    if (storedTokens) {
-      try {
-        const parsedTokens = JSON.parse(storedTokens);
-        setTokens(parsedTokens);
-        // TODO: Validate tokens and fetch user data
-      } catch (error) {
-        localStorage.removeItem('authTokens');
-      }
+    const stored = localStorage.getItem('dzidza_auth');
+    if (!stored) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    try {
+      const parsed = JSON.parse(stored) as { tokens?: BackendTokens; user?: BackendUser };
+      if (parsed?.tokens?.accessToken) {
+        setTokens(parsed.tokens);
+      }
+      if (parsed?.user?.id) {
+        setUser(parsed.user);
+      }
+    } catch {
+      localStorage.removeItem('dzidza_auth');
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // TODO: Implement login API call
-    console.log('Login attempt:', email);
+  const persist = (data: { user: BackendUser | null; tokens: BackendTokens | null }) => {
+    localStorage.setItem('dzidza_auth', JSON.stringify(data));
   };
 
-  const register = async (userData: any) => {
-    // TODO: Implement registration API call
-    console.log('Register attempt:', userData);
+  const applyAuth = (data: AuthResponse) => {
+    setUser(data.user);
+    setTokens(data.tokens);
+    persist({ user: data.user, tokens: data.tokens });
+  };
+
+  const refreshProfile = async () => {
+    if (!tokens?.accessToken) return;
+    const profile = await meApi(tokens.accessToken);
+    setUser(profile);
+    persist({ user: profile, tokens });
+  };
+
+  const login = async (email: string, password: string) => {
+    const data = await loginApi({ email, password });
+    applyAuth(data);
+  };
+
+  const register = async (userData: { email: string; password: string; firstName: string; lastName: string; role: BackendRole }) => {
+    const data = await registerApi(userData);
+    applyAuth(data);
   };
 
   const logout = () => {
     setUser(null);
     setTokens(null);
-    localStorage.removeItem('authTokens');
+    localStorage.removeItem('dzidza_auth');
   };
+
+  const role = user?.role || null;
 
   return (
     <AuthContext.Provider
       value={{
         user,
         tokens,
+        role,
         login,
         register,
         logout,
+        refreshProfile,
         isLoading,
       }}
     >

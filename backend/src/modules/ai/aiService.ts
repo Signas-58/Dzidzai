@@ -3,10 +3,25 @@ import { logger } from '../../utils/logger';
 import { PromptBuilder } from './promptBuilder';
 import { AIGenerateRequest, AIGenerateResponse } from './types';
 import { parseJsonStrict, validateAIGenerateResponse } from './validators';
+import { RAGService } from './rag/ragService';
+import { generateMock } from './mockGenerator';
 
 export class AIService {
   static async generateStructuredContent(input: AIGenerateRequest): Promise<AIGenerateResponse> {
-    const { system, user, fewShot } = PromptBuilder.buildGeneratePrompt(input);
+    const rag = RAGService.retrieveForGeneration(input);
+
+    if (String(process.env.AI_USE_MOCK || '').toLowerCase() === 'true') {
+      const mocked = generateMock(input, rag.contextText || undefined);
+      return validateAIGenerateResponse(mocked, {
+        language: input.language,
+        gradeLevel: input.gradeLevel,
+        minConfidence: Number(process.env.AI_MIN_CONFIDENCE || '0.6'),
+      });
+    }
+
+    const { system, user, fewShot } = PromptBuilder.buildGeneratePrompt(input, {
+      contextText: rag.used ? rag.contextText : undefined,
+    });
 
     const promptForLog = {
       system,
@@ -24,11 +39,27 @@ export class AIService {
       { role: 'user' as const, content: user },
     ];
 
-    const content = await openaiClient.generateChatContent(messages, {
-      model,
-      temperature: 0.3,
-      maxTokens: 1200,
-    });
+    let content = '';
+    try {
+      content = await openaiClient.generateChatContent(messages, {
+        model,
+        temperature: 0.3,
+        maxTokens: 1200,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit');
+      if (isQuota) {
+        logger.warn('OpenAI unavailable (quota/rate-limit). Using mock fallback.', { message: msg });
+        const mocked = generateMock(input, rag.contextText || undefined);
+        return validateAIGenerateResponse(mocked, {
+          language: input.language,
+          gradeLevel: input.gradeLevel,
+          minConfidence: Number(process.env.AI_MIN_CONFIDENCE || '0.6'),
+        });
+      }
+      throw err;
+    }
 
     logger.info('AI raw response', { length: content.length });
 

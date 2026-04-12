@@ -1,9 +1,15 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { AIController } from './controller';
+import { RagController } from './rag/controller';
 
 const router = Router();
 
+const upload = multer({ dest: 'uploads/' });
+
 router.post('/generate', AIController.generate);
+
+router.post('/rag/ingest', upload.single('file'), RagController.ingest);
 
 router.post('/generate-lesson', (req: Request, res: Response) => {
   res.status(501).json({ message: 'Not implemented' });
