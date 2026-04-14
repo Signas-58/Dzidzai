@@ -29,14 +29,17 @@ backend/prisma/dev.db
 backend/prisma/*.db
 
 # RAG artifacts
-backend/data/
 backend/uploads/
+backend/rag_store.json
+
+*.tsbuildinfo
 backend/prisma/*.db-journal
 
 # OS / IDE
 .DS_Store
 Thumbs.db
 .vscode/
+*.code-workspace
 
 # Cache
 .cache/

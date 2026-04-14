@@ -9,6 +9,8 @@ import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../components/providers/AuthProvider';
 import { generateAIWithOfflineSupport } from '../../lib/aiOfflineApi';
 import { AIGeneratePayload, readCache } from '../../lib/offlineStore';
+import { SpeechControls } from '../../components/ui/SpeechControls';
+import { SpeechToTextButton } from '../../components/ui/SpeechToTextButton';
 
 const SUBJECTS = ['Math', 'English', 'Science', 'Social Studies'] as const;
 const LANGUAGES = ['Shona', 'Ndebele', 'Tonga'] as const;
@@ -117,7 +119,21 @@ export default function LearnPage() {
               </select>
             </div>
 
-            <Input label="Topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Addition" />
+            <Input
+              label="Topic"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. Addition"
+              aria-label="Topic"
+              rightElement={
+                <SpeechToTextButton
+                  onResult={(text) => {
+                    setTopic(text);
+                    toast.success('Filled topic from voice');
+                  }}
+                />
+              }
+            />
 
             <div>
               <label className="text-sm font-medium text-gray-700">Grade level</label>
@@ -161,6 +177,25 @@ export default function LearnPage() {
 
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900">Result</h2>
+          <div className="mt-3">
+            <SpeechControls
+              language={language}
+              label="Listen"
+              text={
+                result && typeof result === 'object'
+                  ? (() => {
+                      const r: any = result as any;
+                      const explanation = typeof r.explanation === 'string' ? r.explanation : '';
+                      const example = typeof r.example === 'string' ? r.example : '';
+                      const combined = [explanation, example].filter(Boolean).join('\n\n');
+                      return combined || JSON.stringify(result);
+                    })()
+                  : result
+                  ? String(result)
+                  : ''
+              }
+            />
+          </div>
           <div className="mt-4 rounded-md border border-gray-200 bg-white p-4 text-xs text-gray-800 overflow-auto" style={{ maxHeight: 420 }}>
             {result ? <pre className="whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre> : 'No result yet.'}
           </div>
