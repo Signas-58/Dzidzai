@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger';
+import { PasswordService } from '../../utils/password';
 
 const prisma = new PrismaClient();
 
@@ -7,12 +8,16 @@ export interface CreateChildData {
   name: string;
   gradeLevel: number;
   preferredLanguage: 'SHONA' | 'NDEBELE' | 'TONGA' | 'ENGLISH';
+  email?: string;
+  password?: string;
+  preferredSubjects?: string[];
 }
 
 export interface UpdateChildData {
   name?: string;
   gradeLevel?: number;
   preferredLanguage?: 'SHONA' | 'NDEBELE' | 'TONGA' | 'ENGLISH';
+  preferredSubjects?: string[];
 }
 
 export interface ChildResponse {
@@ -20,14 +25,17 @@ export interface ChildResponse {
   name: string;
   gradeLevel: number;
   preferredLanguage: string;
+  preferredSubjects?: unknown;
   parentId: string;
+  userId?: string | null;
+  email?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export class UserService {
   static async createChild(parentId: string, data: CreateChildData): Promise<ChildResponse> {
-    const { name, gradeLevel, preferredLanguage } = data;
+    const { name, gradeLevel, preferredLanguage, email, password, preferredSubjects } = data;
 
     // Validate grade level (0-8 for ECD A, ECD B, Grade 1-7)
     if (gradeLevel < 0 || gradeLevel > 8) {
@@ -53,15 +61,57 @@ export class UserService {
       throw new Error('Only parents can create child profiles');
     }
 
+    let childUserId: string | null = null;
+    let childUserEmail: string | null = null;
+
+    if (email || password) {
+      if (!email || !password) {
+        throw new Error('Email and password are required to create a child login');
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+
+      const passwordValidation = PasswordService.validatePasswordStrength(password);
+      if (!passwordValidation.isValid) {
+        throw new Error(`Password requirements not met: ${passwordValidation.errors.join(', ')}`);
+      }
+
+      const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+      if (existing) {
+        throw new Error('User with this email already exists');
+      }
+
+      const hashedPassword = await PasswordService.hashPassword(password);
+
+      const childUser = await prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          firstName: name.trim(),
+          lastName: '',
+          role: 'CHILD',
+        },
+        select: { id: true, email: true },
+      });
+
+      childUserId = childUser.id;
+      childUserEmail = childUser.email;
+    }
+
     // Create child
     const child = await prisma.child.create({
       data: {
         name: name.trim(),
         gradeLevel,
         preferredLanguage,
+        preferredSubjects: preferredSubjects ? JSON.stringify(preferredSubjects) : undefined,
         parentId,
-      },
-    });
+        userId: childUserId,
+      } as any,
+    } as any);
 
     logger.info(`Child profile created: ${child.id} for parent: ${parentId}`);
 
@@ -70,7 +120,18 @@ export class UserService {
       name: child.name,
       gradeLevel: child.gradeLevel,
       preferredLanguage: child.preferredLanguage,
+      preferredSubjects: (() => {
+        const raw = (child as any).preferredSubjects;
+        if (!raw || typeof raw !== 'string') return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      })(),
       parentId: child.parentId,
+      userId: (child as any).userId ?? null,
+      email: childUserEmail,
       createdAt: child.createdAt,
       updatedAt: child.updatedAt,
     };
@@ -91,14 +152,28 @@ export class UserService {
     const children = await prisma.child.findMany({
       where: { parentId },
       orderBy: { createdAt: 'desc' },
-    });
+      include: {
+        user: { select: { email: true, id: true } },
+      },
+    } as any);
 
     return children.map((child) => ({
       id: child.id,
       name: child.name,
       gradeLevel: child.gradeLevel,
       preferredLanguage: child.preferredLanguage,
+      preferredSubjects: (() => {
+        const raw = (child as any).preferredSubjects;
+        if (!raw || typeof raw !== 'string') return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return raw;
+        }
+      })(),
       parentId: child.parentId,
+      userId: (child as any).userId ?? null,
+      email: (child as any).user?.email ?? null,
       createdAt: child.createdAt,
       updatedAt: child.updatedAt,
     }));

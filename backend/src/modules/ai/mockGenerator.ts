@@ -18,7 +18,7 @@ function gradeBand(gradeLevel: GradeLevel): 'early' | 'mid' | 'upper' {
 }
 
 function confidence(): number {
-  const min = 0.75;
+  const min = 0.6;
   const max = 0.95;
   const v = min + Math.random() * (max - min);
   return Math.round(v * 100) / 100;
@@ -28,6 +28,7 @@ const namesByLang: Record<Lang, string[]> = {
   Shona: ['Tendai', 'Nyasha', 'Ruva', 'Tinashe', 'Farai'],
   Ndebele: ['Sipho', 'Thando', 'Nomalanga', 'Bongani', 'Ayanda'],
   Tonga: ['Mubita', 'Chipo', 'Taonga', 'Sitali', 'Leya'],
+  English: ['Tendai', 'Nyasha', 'Ruva', 'Tinashe', 'Farai'],
 };
 
 const contexts = [
@@ -39,7 +40,8 @@ const contexts = [
 function langText(lang: Lang, shona: string, ndebele: string, tonga: string): string {
   if (lang === 'Shona') return shona;
   if (lang === 'Ndebele') return ndebele;
-  return tonga;
+  if (lang === 'Tonga') return tonga;
+  return shona;
 }
 
 function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateResponse {

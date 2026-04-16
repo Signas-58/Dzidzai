@@ -20,7 +20,7 @@ import analyticsRoutes from './modules/analytics/routes';
 // Load environment variables
 dotenv.config();
 
-logger.info(`OpenAI configured: ${Boolean(process.env.OPENAI_API_KEY)}`);
+logger.info(`Groq configured: ${Boolean(process.env.GROQ_API_KEY)}`);
 
 const app = express();
 const PORT = process.env.PORT || 5000;

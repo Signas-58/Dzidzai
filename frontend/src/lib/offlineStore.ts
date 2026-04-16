@@ -4,6 +4,9 @@ export type AIGeneratePayload = {
   gradeLevel: string;
   language: string;
   childId?: string;
+  improve?: boolean;
+  mode?: 'normal' | 'simplify' | 'translate';
+  translateTo?: string;
 };
 
 export type CachedAIResponse = {
@@ -22,6 +25,7 @@ export type QueuedAIRequest = {
 const CACHE_KEY = 'dzidza_ai_ai_cache_v1';
 const QUEUE_KEY = 'dzidza_ai_ai_queue_v1';
 const LAST_SYNC_KEY = 'dzidza_ai_last_synced_v1';
+const LAST_INPUTS_KEY = 'dzidza_ai_last_inputs_v1';
 
 function safeParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -106,4 +110,22 @@ export function setLastSynced(iso: string) {
 export function getLastSynced(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(LAST_SYNC_KEY);
+}
+
+export type LastLearnInputs = {
+  subject: string;
+  topic: string;
+  gradeLevel: string;
+  language: string;
+  childId?: string;
+};
+
+export function setLastLearnInputs(v: LastLearnInputs) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LAST_INPUTS_KEY, JSON.stringify(v));
+}
+
+export function getLastLearnInputs(): LastLearnInputs | null {
+  if (typeof window === 'undefined') return null;
+  return safeParse<LastLearnInputs>(localStorage.getItem(LAST_INPUTS_KEY));
 }

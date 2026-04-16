@@ -44,6 +44,6 @@
 
 ## Environment Variables
 
-- `OPENAI_API_KEY` (required)
-- `OPENAI_MODEL` (optional, default `gpt-3.5-turbo`)
+- `GROQ_API_KEY` (required)
+- `GROQ_MODEL` (optional, default `llama-3.3-70b-versatile`)
 - `AI_MIN_CONFIDENCE` (optional, default `0.6`)

@@ -10,10 +10,12 @@ export class AIService {
   static async generateStructuredContent(input: AIGenerateRequest): Promise<AIGenerateResponse> {
     const rag = RAGService.retrieveForGeneration(input);
 
+    const expectedLanguage = input.mode === 'translate' && input.translateTo ? input.translateTo : input.language;
+
     if (String(process.env.AI_USE_MOCK || '').toLowerCase() === 'true') {
       const mocked = generateMock(input, rag.contextText || undefined);
       return validateAIGenerateResponse(mocked, {
-        language: input.language,
+        language: expectedLanguage,
         gradeLevel: input.gradeLevel,
         minConfidence: Number(process.env.AI_MIN_CONFIDENCE || '0.6'),
       });
@@ -31,7 +33,7 @@ export class AIService {
 
     logger.info('AI generate prompt', promptForLog);
 
-    const model = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
+    const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
     const messages = [
       { role: 'system' as const, content: system },
@@ -50,10 +52,10 @@ export class AIService {
       const msg = err instanceof Error ? err.message : String(err);
       const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit');
       if (isQuota) {
-        logger.warn('OpenAI unavailable (quota/rate-limit). Using mock fallback.', { message: msg });
+        logger.warn('AI provider unavailable (quota/rate-limit). Using mock fallback.', { message: msg });
         const mocked = generateMock(input, rag.contextText || undefined);
         return validateAIGenerateResponse(mocked, {
-          language: input.language,
+          language: expectedLanguage,
           gradeLevel: input.gradeLevel,
           minConfidence: Number(process.env.AI_MIN_CONFIDENCE || '0.6'),
         });
@@ -66,7 +68,7 @@ export class AIService {
     const parsed = parseJsonStrict(content);
 
     const validated = validateAIGenerateResponse(parsed, {
-      language: input.language,
+      language: expectedLanguage,
       gradeLevel: input.gradeLevel,
       minConfidence: Number(process.env.AI_MIN_CONFIDENCE || '0.6'),
     });

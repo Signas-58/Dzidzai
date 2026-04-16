@@ -11,7 +11,11 @@ import {
 
 export type AIGenerateResult = unknown;
 
-export async function generateAIOnline(payload: AIGeneratePayload, token: string, idempotencyKey?: string) {
+export async function generateAIOnline(
+  payload: AIGeneratePayload & { improve?: boolean },
+  token: string,
+  idempotencyKey?: string
+) {
   const res = await apiFetch<{ success: boolean; data: AIGenerateResult }>(`/ai/generate`, {
     method: 'POST',
     token,
@@ -21,7 +25,7 @@ export async function generateAIOnline(payload: AIGeneratePayload, token: string
   return res.data;
 }
 
-export async function generateAIWithOfflineSupport(payload: AIGeneratePayload, token: string) {
+export async function generateAIWithOfflineSupport(payload: AIGeneratePayload & { improve?: boolean }, token: string) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const cached = getCachedResponse(payload);
     if (cached) {

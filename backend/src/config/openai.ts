@@ -10,24 +10,36 @@ class OpenAIClient {
   private client: OpenAI | null;
 
   constructor() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    this.client = apiKey ? new OpenAI({ apiKey }) : null;
+    const apiKey = process.env.GROQ_API_KEY;
+    this.client = apiKey
+      ? new OpenAI({
+          apiKey,
+          baseURL: 'https://api.groq.com/openai/v1',
+        })
+      : null;
   }
 
   private ensureClient(): OpenAI {
     if (!this.client) {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = process.env.GROQ_API_KEY;
       if (!apiKey) {
-        throw new Error('OPENAI_API_KEY environment variable is required');
+        throw new Error('GROQ_API_KEY environment variable is required');
       }
-      this.client = new OpenAI({ apiKey });
+      this.client = new OpenAI({
+        apiKey,
+        baseURL: 'https://api.groq.com/openai/v1',
+      });
     }
     return this.client;
   }
 
   async embed(text: string, options?: { model?: string }): Promise<number[]> {
     const client = this.ensureClient();
-    const model = options?.model || process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';
+    const model =
+      options?.model ||
+      process.env.GROQ_EMBEDDING_MODEL ||
+      process.env.OPENAI_EMBEDDING_MODEL ||
+      'text-embedding-3-small';
     const res = await client.embeddings.create({
       model,
       input: text,
@@ -47,7 +59,7 @@ class OpenAIClient {
     try {
       const client = this.ensureClient();
       const response = await client.chat.completions.create({
-        model: options?.model || 'gpt-3.5-turbo',
+        model: options?.model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',
@@ -64,7 +76,7 @@ class OpenAIClient {
 
       return response.choices[0]?.message?.content || '';
     } catch (error) {
-      logger.error('OpenAI API error', {
+      logger.error('AI provider API error', {
         message: error instanceof Error ? error.message : String(error),
         error,
       });
@@ -80,7 +92,7 @@ class OpenAIClient {
     try {
       const client = this.ensureClient();
       const response = await client.chat.completions.create({
-        model: options?.model || 'gpt-3.5-turbo',
+        model: options?.model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages,
         max_tokens: options?.maxTokens || 1000,
         temperature: options?.temperature || 0.7,
@@ -88,7 +100,7 @@ class OpenAIClient {
 
       return response.choices[0]?.message?.content || '';
     } catch (error) {
-      logger.error('OpenAI chat API error', {
+      logger.error('AI provider chat API error', {
         message: error instanceof Error ? error.message : String(error),
         error,
       });
@@ -123,7 +135,7 @@ class OpenAIClient {
 
       const client = this.ensureClient();
       const response = await client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',
@@ -144,7 +156,7 @@ class OpenAIClient {
         try {
           return JSON.parse(result);
         } catch (parseError) {
-          logger.error('Failed to parse OpenAI validation response:', parseError);
+          logger.error('Failed to parse AI validation response:', parseError);
           return {
             isValid: false,
             score: 0,
@@ -182,7 +194,7 @@ class OpenAIClient {
 
       const client = this.ensureClient();
       const response = await client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',

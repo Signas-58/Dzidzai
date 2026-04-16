@@ -13,7 +13,7 @@ export class UserController {
         return;
       }
 
-      const { name, gradeLevel, preferredLanguage } = req.body;
+      const { name, gradeLevel, preferredLanguage, email, password, preferredSubjects } = req.body;
 
       // Validate required fields
       if (!name || gradeLevel === undefined || !preferredLanguage) {
@@ -24,10 +24,23 @@ export class UserController {
         return;
       }
 
+      if ((email && typeof email !== 'string') || (password && typeof password !== 'string')) {
+        res.status(400).json({ success: false, error: 'Invalid email or password' });
+        return;
+      }
+
+      if (preferredSubjects !== undefined && !Array.isArray(preferredSubjects)) {
+        res.status(400).json({ success: false, error: 'preferredSubjects must be an array of subjects' });
+        return;
+      }
+
       const child = await UserService.createChild(req.user.id, {
         name,
         gradeLevel,
         preferredLanguage,
+        email: email ? String(email) : undefined,
+        password: password ? String(password) : undefined,
+        preferredSubjects: Array.isArray(preferredSubjects) ? preferredSubjects.map((s) => String(s)) : undefined,
       });
 
       res.status(201).json({

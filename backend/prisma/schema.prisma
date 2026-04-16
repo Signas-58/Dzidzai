@@ -22,7 +22,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  children Child[]
+  children Child[] @relation("ParentChildren")
+  childAccount Child? @relation("ChildAccount")
   sessions Session[]
   learningActivities LearningActivity[]
 
@@ -34,12 +35,15 @@ model Child {
   name             String
   gradeLevel       Int       // 0-8 (ECD A, ECD B, Grade 1-7)
   preferredLanguage String   @default("SHONA")
+  preferredSubjects String?
   parentId         String
+  userId           String?   @unique
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  parent User @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  parent User @relation("ParentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  user   User? @relation("ChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   progress UserProgress[]
   learningActivities LearningActivity[]
 

@@ -20,6 +20,7 @@ function normalizeLanguage(lang: string): SupportedLanguage | null {
   if (v === 'shona') return 'Shona';
   if (v === 'ndebele') return 'Ndebele';
   if (v === 'tonga') return 'Tonga';
+  if (v === 'english' || v === 'en') return 'English';
   return null;
 }
 
@@ -81,7 +82,7 @@ export function validateAIGenerateResponse(
     .join(' ')}`.toLowerCase();
   const englishStopwords = [' the ', ' and ', ' is ', ' are ', ' of ', ' to ', ' in ', ' for ', ' with '];
   const englishHits = englishStopwords.reduce((acc, w) => acc + (combinedText.includes(w) ? 1 : 0), 0);
-  if (englishHits >= 4) {
+  if (expected.language !== 'English' && englishHits >= 4) {
     throw new AIValidationError('Language consistency check failed');
   }
 

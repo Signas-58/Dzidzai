@@ -23,7 +23,10 @@ export function OfflineBanner() {
     >
       <div className="max-w-5xl mx-auto px-4 py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div className="text-sm">
-          <span className="font-semibold">{isOnline ? 'Online' : 'You are offline'}</span>
+          <span className="inline-flex items-center gap-2 font-semibold">
+            <span className={isOnline ? 'h-2 w-2 rounded-full bg-emerald-500' : 'h-2 w-2 rounded-full bg-red-500'} />
+            {isOnline ? 'Online' : 'Offline Mode'}
+          </span>
           <span className="ml-2 opacity-80">Last synced: {formatLastSynced(lastSynced)}</span>
           {queuedCount > 0 ? <span className="ml-2 opacity-80">Queued: {queuedCount}</span> : null}
         </div>

@@ -17,6 +17,8 @@ type OverviewDto = {
   subjectDistribution: { subject: string; count: number }[];
 };
 
+const SUBJECT_OPTIONS = ['Math', 'English', 'Science', 'Social Studies'];
+
 type ProgressDto = {
   granularity: 'daily' | 'weekly';
   days: number;
@@ -36,6 +38,27 @@ type RecommendationsDto = {
 
 const PIE_COLORS = ['#2563eb', '#7c3aed', '#059669', '#dc2626', '#d97706'];
 
+type CreateChildPayload = {
+  name: string;
+  gradeLevel: number;
+  preferredLanguage: 'SHONA' | 'NDEBELE' | 'TONGA' | 'ENGLISH';
+  email: string;
+  password: string;
+  preferredSubjects: string[];
+};
+
+const GRADE_LEVEL_OPTIONS: { label: string; value: number }[] = [
+  { label: 'ECD A', value: 0 },
+  { label: 'ECD B', value: 1 },
+  { label: 'Grade 1', value: 2 },
+  { label: 'Grade 2', value: 3 },
+  { label: 'Grade 3', value: 4 },
+  { label: 'Grade 4', value: 5 },
+  { label: 'Grade 5', value: 6 },
+  { label: 'Grade 6', value: 7 },
+  { label: 'Grade 7', value: 8 },
+];
+
 export default function ParentDashboardPage() {
   const router = useRouter();
   const { user, tokens, role, isLoading, logout } = useAuth();
@@ -49,6 +72,68 @@ export default function ParentDashboardPage() {
 
   const [dashLoading, setDashLoading] = useState(false);
   const [dashError, setDashError] = useState<string | null>(null);
+
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [createChildLoading, setCreateChildLoading] = useState(false);
+  const [createChildError, setCreateChildError] = useState<string | null>(null);
+  const [childName, setChildName] = useState('');
+  const [childEmail, setChildEmail] = useState('');
+  const [childPassword, setChildPassword] = useState('');
+  const [childGradeLevel, setChildGradeLevel] = useState<number>(GRADE_LEVEL_OPTIONS[2]?.value ?? 2);
+  const [childPreferredLanguage, setChildPreferredLanguage] = useState<CreateChildPayload['preferredLanguage']>('SHONA');
+  const [childPreferredSubjects, setChildPreferredSubjects] = useState<string[]>([]);
+
+  async function handleCreateChild() {
+    if (!tokens?.accessToken) return;
+    setCreateChildError(null);
+
+    const payload: CreateChildPayload = {
+      name: childName.trim(),
+      email: childEmail.trim().toLowerCase(),
+      password: childPassword,
+      gradeLevel: childGradeLevel,
+      preferredLanguage: childPreferredLanguage,
+      preferredSubjects: childPreferredSubjects,
+    };
+
+    if (!payload.name || payload.name.length < 2) {
+      setCreateChildError('Child name must be at least 2 characters.');
+      return;
+    }
+
+    if (!payload.email) {
+      setCreateChildError('Email is required.');
+      return;
+    }
+
+    if (!payload.password) {
+      setCreateChildError('Password is required.');
+      return;
+    }
+
+    setCreateChildLoading(true);
+    try {
+      const res = await apiFetch<{ success: boolean; data: ChildDto }>(`/users/children`, {
+        method: 'POST',
+        token: tokens.accessToken,
+        body: JSON.stringify(payload),
+      });
+
+      setChildren((prev) => [res.data, ...prev]);
+      setSelectedChildId(res.data.id);
+      setChildName('');
+      setChildEmail('');
+      setChildPassword('');
+      setChildGradeLevel(GRADE_LEVEL_OPTIONS[2]?.value ?? 2);
+      setChildPreferredLanguage('SHONA');
+      setChildPreferredSubjects([]);
+      setShowAddChild(false);
+    } catch (e) {
+      setCreateChildError(e instanceof Error ? e.message : 'Failed to create child.');
+    } finally {
+      setCreateChildLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (isLoading) return;
@@ -137,6 +222,13 @@ export default function ParentDashboardPage() {
 
   const hasData = Boolean(overview && overview.totalSessions > 0);
 
+  const todaysLearning = useMemo(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const topicsCoveredToday = progress?.series?.find((x) => x.date === todayKey)?.count || 0;
+    const avgConfidence = typeof overview?.averageConfidenceScore === 'number' ? overview.averageConfidenceScore : null;
+    return { topicsCoveredToday, avgConfidence };
+  }, [overview?.averageConfidenceScore, progress?.series]);
+
   const subjectPieData = useMemo(() => {
     return overview?.subjectDistribution?.map((s) => ({ name: s.subject, value: s.count })) || [];
   }, [overview]);
@@ -159,7 +251,18 @@ export default function ParentDashboardPage() {
           Learning analytics based on AI sessions.
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateChildError(null);
+                setShowAddChild((v) => !v);
+              }}
+            >
+              {showAddChild ? 'Close' : 'Add Child'}
+            </Button>
+          </div>
           <label className="text-sm font-medium text-gray-700">Child</label>
           <select
             value={selectedChildId}
@@ -175,6 +278,125 @@ export default function ParentDashboardPage() {
           </select>
         </div>
       </div>
+
+      {showAddChild ? (
+        <div className="mt-4 card">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Register Child</h2>
+              <p className="mt-1 text-sm text-gray-600">Create a student profile under your parent account.</p>
+            </div>
+          </div>
+
+          {createChildError ? (
+            <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {createChildError}
+            </div>
+          ) : null}
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="label">Name</label>
+              <input
+                value={childName}
+                onChange={(e) => setChildName(e.target.value)}
+                className="input"
+                placeholder="e.g. Tariro"
+              />
+            </div>
+
+            <div>
+              <label className="label">Email</label>
+              <input
+                value={childEmail}
+                onChange={(e) => setChildEmail(e.target.value)}
+                className="input"
+                placeholder="e.g. tariro@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="label">Password</label>
+              <input
+                type="password"
+                value={childPassword}
+                onChange={(e) => setChildPassword(e.target.value)}
+                className="input"
+                placeholder="Create a password"
+              />
+            </div>
+
+            <div>
+              <label className="label">Grade level</label>
+              <select
+                value={childGradeLevel}
+                onChange={(e) => setChildGradeLevel(Number(e.target.value))}
+                className="input"
+              >
+                {GRADE_LEVEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Preferred language</label>
+              <select
+                value={childPreferredLanguage}
+                onChange={(e) => setChildPreferredLanguage(e.target.value as CreateChildPayload['preferredLanguage'])}
+                className="input"
+              >
+                <option value="SHONA">Shona</option>
+                <option value="NDEBELE">Ndebele</option>
+                <option value="TONGA">Tonga</option>
+                <option value="ENGLISH">English</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Preferred subjects</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {SUBJECT_OPTIONS.map((s) => {
+                  const active = childPreferredSubjects.includes(s);
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setChildPreferredSubjects((prev) => (active ? prev.filter((x) => x !== s) : [...prev, s]));
+                      }}
+                      className={
+                        active
+                          ? 'h-10 rounded-md border border-primary-200 bg-primary-50 text-sm font-medium text-primary-800'
+                          : 'h-10 rounded-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50'
+                      }
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <Button onClick={handleCreateChild} disabled={createChildLoading}>
+              {createChildLoading ? 'Creating...' : 'Create child'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddChild(false);
+                setCreateChildError(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {dashError ? (
         <div className="mt-6 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -206,11 +428,15 @@ export default function ParentDashboardPage() {
             <div className="mt-2 text-2xl font-bold text-gray-900">{overview.mostStudiedSubject || '—'}</div>
           </div>
           <div className="card">
-            <div className="text-sm text-gray-600">Avg Confidence</div>
-            <div className="mt-2 text-2xl font-bold text-gray-900">
-              {typeof overview.averageConfidenceScore === 'number'
-                ? `${Math.round(overview.averageConfidenceScore * 100)}%`
-                : '—'}
+            <div className="text-sm text-gray-600">Today's Learning</div>
+            <div className="mt-2 text-sm text-gray-900">
+              <div>
+                <span className="font-semibold">Topics covered:</span> {todaysLearning.topicsCoveredToday}
+              </div>
+              <div className="mt-1">
+                <span className="font-semibold">Avg confidence:</span>{' '}
+                {todaysLearning.avgConfidence !== null ? `${Math.round(todaysLearning.avgConfidence * 100)}%` : '—'}
+              </div>
             </div>
           </div>
         </div>

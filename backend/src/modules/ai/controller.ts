@@ -10,7 +10,7 @@ function isSubject(v: unknown): v is Subject {
 }
 
 function isLanguage(v: unknown): v is SupportedLanguage {
-  return v === 'Shona' || v === 'Ndebele' || v === 'Tonga';
+  return v === 'Shona' || v === 'Ndebele' || v === 'Tonga' || v === 'English';
 }
 
 function isGradeLevel(v: unknown): v is GradeLevel {
@@ -30,7 +30,7 @@ function isGradeLevel(v: unknown): v is GradeLevel {
 export class AIController {
   static async generate(req: Request, res: Response): Promise<void> {
     try {
-      const { subject, topic, gradeLevel, language, childId } = req.body as Partial<AIGenerateRequest>;
+      const { subject, topic, gradeLevel, language, childId, improve, mode, translateTo } = req.body as Partial<AIGenerateRequest>;
 
       if (!isSubject(subject)) {
         res.status(400).json({ success: false, error: 'Invalid subject' });
@@ -57,6 +57,9 @@ export class AIController {
         topic: topic.trim(),
         gradeLevel,
         language,
+        improve: Boolean(improve),
+        mode: mode === 'simplify' || mode === 'translate' ? mode : 'normal',
+        translateTo: translateTo && isLanguage(translateTo) ? translateTo : undefined,
       });
 
       if (req.user?.id) {
@@ -72,7 +75,7 @@ export class AIController {
               subject,
               topic: topic.trim(),
               gradeLevel,
-              language,
+              language: result.language,
               confidenceScore: result.confidenceScore,
             },
           });
@@ -94,7 +97,7 @@ export class AIController {
     } catch (err) {
       logger.error('AI generate error', err);
 
-      if (err instanceof Error && err.message.includes('OPENAI_API_KEY')) {
+      if (err instanceof Error && err.message.includes('GROQ_API_KEY')) {
         res.status(503).json({ success: false, error: 'AI provider not configured' });
         return;
       }
