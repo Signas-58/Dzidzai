@@ -5,18 +5,23 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../components/providers/AuthProvider';
 import { generateAIWithOfflineSupport } from '../../lib/aiOfflineApi';
 import { AIGeneratePayload, getLastLearnInputs, getLastSynced, readCache, setLastLearnInputs } from '../../lib/offlineStore';
 import { SpeechControls } from '../../components/ui/SpeechControls';
-import { SpeechToTextButton } from '../../components/ui/SpeechToTextButton';
-import { apiFetch } from '../../lib/api';
+import { ApiError, apiFetch } from '../../lib/api';
 
 const SUBJECTS = ['Math', 'English', 'Science', 'Social Studies'] as const;
-const LANGUAGES = ['Shona', 'Ndebele', 'Tonga'] as const;
-const TRANSLATE_TARGETS = ['Shona', 'Ndebele', 'English'] as const;
+const LANGUAGES = ['English', 'Shona', 'Ndebele', 'Tonga'] as const;
+const TRANSLATE_TARGETS = ['Shona', 'Ndebele', 'Tonga'] as const;
 const GRADE_LEVELS = ['ECD A', 'ECD B', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7'] as const;
+
+const TOPICS_BY_SUBJECT: Record<(typeof SUBJECTS)[number], string[]> = {
+  Math: ['Addition', 'Subtraction', 'Multiplication', 'Division', 'Fractions', 'Shapes', 'Measurement', 'Time', 'Money'],
+  English: ['Reading Comprehension', 'Spelling', 'Grammar', 'Vocabulary', 'Parts of Speech', 'Sentence Construction'],
+  Science: ['Plants', 'Animals', 'Weather', 'Materials', 'Human Body', 'Environment'],
+  'Social Studies': ['Family', 'Community', 'Maps & Directions', 'Zimbabwe History', 'Culture & Traditions', 'Citizenship'],
+};
 
 type Mode = 'idle' | 'online' | 'offline-cache' | 'offline-queued';
 
@@ -48,9 +53,9 @@ export default function LearnPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>('');
 
   const [subject, setSubject] = useState<(typeof SUBJECTS)[number]>('Math');
-  const [topic, setTopic] = useState('Addition');
+  const [topic, setTopic] = useState<string>(TOPICS_BY_SUBJECT.Math[0] ?? 'Addition');
   const [gradeLevel, setGradeLevel] = useState<(typeof GRADE_LEVELS)[number]>('Grade 3');
-  const [language, setLanguage] = useState<(typeof LANGUAGES)[number]>('Shona');
+  const [language, setLanguage] = useState<(typeof LANGUAGES)[number]>('English');
 
   const [mode, setMode] = useState<Mode>('idle');
   const [result, setResult] = useState<unknown>(null);
@@ -61,10 +66,15 @@ export default function LearnPage() {
   const [practiceAnswers, setPracticeAnswers] = useState<Record<number, string>>({});
   const [practiceChecked, setPracticeChecked] = useState(false);
 
-  const [translateTo, setTranslateTo] = useState<(typeof TRANSLATE_TARGETS)[number]>('English');
+  const [translateTo, setTranslateTo] = useState<(typeof TRANSLATE_TARGETS)[number]>('Shona');
 
-  const cached = useMemo(() => readCache(), [mode]);
-  const lastSynced = useMemo(() => getLastSynced(), [mode]);
+  const [cached, setCached] = useState<ReturnType<typeof readCache>>([]);
+  const [lastSynced, setLastSyncedState] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCached(readCache());
+    setLastSyncedState(getLastSynced());
+  }, [mode]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -85,6 +95,13 @@ export default function LearnPage() {
   }, []);
 
   useEffect(() => {
+    if (language !== 'English') return;
+    if (!TRANSLATE_TARGETS.includes(translateTo as any)) {
+      setTranslateTo(TRANSLATE_TARGETS[0]);
+    }
+  }, [language, translateTo]);
+
+  useEffect(() => {
     setLastLearnInputs({
       subject,
       topic,
@@ -93,6 +110,15 @@ export default function LearnPage() {
       childId: selectedChildId || undefined,
     });
   }, [subject, topic, gradeLevel, language, selectedChildId]);
+
+  const topicOptions = useMemo(() => TOPICS_BY_SUBJECT[subject] ?? [], [subject]);
+
+  useEffect(() => {
+    if (topicOptions.length === 0) return;
+    if (!topicOptions.includes(topic)) {
+      setTopic(topicOptions[0]);
+    }
+  }, [topic, topicOptions]);
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -133,8 +159,8 @@ export default function LearnPage() {
 
   const onGenerate = async (opts?: { improve?: boolean; mode?: 'simplify' | 'translate'; translateTo?: string }) => {
     if (!tokens?.accessToken) return;
-    if (!topic.trim()) {
-      toast.error('Please enter a topic');
+    if (!topic || !String(topic).trim()) {
+      toast.error('Please select a topic');
       return;
     }
 
@@ -145,7 +171,7 @@ export default function LearnPage() {
       const res = await generateAIWithOfflineSupport(
         {
           ...payload,
-          topic: topic.trim(),
+          topic: String(topic).trim(),
           improve: Boolean(opts?.improve),
           mode: opts?.mode ? opts.mode : 'normal',
           ...(opts?.mode === 'translate' ? { translateTo: opts.translateTo } : {}),
@@ -173,8 +199,19 @@ export default function LearnPage() {
         toast('Offline: request queued. It will sync when online.');
       }
     } catch (e) {
-      setErrorText('Something went wrong. Please try again.');
-      toast.error('Something went wrong. Please try again.');
+      if (e instanceof ApiError) {
+        if (e.status === 401) {
+          toast.error('Session expired. Please log in again.');
+          logout();
+          router.replace('/login');
+          return;
+        }
+        setErrorText(e.message);
+        toast.error(e.message);
+      } else {
+        setErrorText('Something went wrong. Please try again.');
+        toast.error('Something went wrong. Please try again.');
+      }
     } finally {
       setBusy(false);
     }
@@ -195,6 +232,12 @@ export default function LearnPage() {
             answer: String((q as any).answer || ''),
           }))
       : [];
+
+  const missingPracticeCount = practiceQuestions.reduce((acc, _q, idx) => {
+    const ans = (practiceAnswers[idx] ?? '').trim();
+    return ans ? acc : acc + 1;
+  }, 0);
+  const allPracticeAnswered = practiceQuestions.length > 0 && missingPracticeCount === 0;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
@@ -246,7 +289,12 @@ export default function LearnPage() {
               <label className="text-sm font-medium text-gray-700">Subject</label>
               <select
                 value={subject}
-                onChange={(e) => setSubject(e.target.value as any)}
+                onChange={(e) => {
+                  const next = e.target.value as (typeof SUBJECTS)[number];
+                  setSubject(next);
+                  const nextTopics = TOPICS_BY_SUBJECT[next] ?? [];
+                  if (nextTopics.length) setTopic(nextTopics[0]);
+                }}
                 className="mt-1 h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900"
               >
                 {SUBJECTS.map((s) => (
@@ -257,21 +305,21 @@ export default function LearnPage() {
               </select>
             </div>
 
-            <Input
-              label="Topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Addition"
-              aria-label="Topic"
-              rightElement={
-                <SpeechToTextButton
-                  onResult={(text) => {
-                    setTopic(text);
-                    toast.success('Filled topic from voice');
-                  }}
-                />
-              }
-            />
+            <div>
+              <label className="text-sm font-medium text-gray-700">Topic</label>
+              <select
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900"
+                aria-label="Topic"
+              >
+                {topicOptions.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="text-sm font-medium text-gray-700">Grade level</label>
@@ -334,6 +382,7 @@ export default function LearnPage() {
                   onChange={(e) => setTranslateTo(e.target.value as any)}
                   className="h-10 flex-1 rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-900"
                   aria-label="Translate target language"
+                  disabled={language !== 'English'}
                 >
                   {TRANSLATE_TARGETS.map((t) => (
                     <option key={t} value={t}>
@@ -344,7 +393,7 @@ export default function LearnPage() {
                 <Button
                   variant="outline"
                   onClick={() => onGenerate({ mode: 'translate', translateTo })}
-                  disabled={busy || mode === 'offline-queued'}
+                  disabled={busy || mode === 'offline-queued' || language !== 'English'}
                   aria-label="Translate"
                   type="button"
                 >
@@ -407,11 +456,21 @@ export default function LearnPage() {
               📚 {practiceMode ? 'Close Practice' : 'Start Practice'}
             </Button>
 
-            {practiceMode ? (
+            {practiceMode && allPracticeAnswered ? (
               <Button
                 type="button"
                 className="h-9"
-                onClick={() => setPracticeChecked(true)}
+                onClick={() => {
+                  if (!allPracticeAnswered) {
+                    toast.error(
+                      Number(missingPracticeCount) === 1
+                        ? 'Please answer the remaining question before checking.'
+                        : `Please answer all questions before checking. (${missingPracticeCount} remaining)`
+                    );
+                    return;
+                  }
+                  setPracticeChecked(true);
+                }}
                 disabled={!practiceQuestions.length}
                 aria-label="Check answers"
               >
@@ -455,15 +514,6 @@ export default function LearnPage() {
               })}
             </div>
           ) : null}
-          <div className="mt-4 rounded-md border border-gray-200 bg-white p-4 text-xs text-gray-800 overflow-auto" style={{ maxHeight: 420 }}>
-            {busy ? (
-              <div className="text-sm text-gray-600">Generating lesson...</div>
-            ) : result ? (
-              <pre className="whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
-            ) : (
-              'No result yet.'
-            )}
-          </div>
         </div>
       </div>
 
@@ -502,6 +552,20 @@ export default function LearnPage() {
                 <div className="mt-2 text-xs text-gray-600">
                   {c.payload.gradeLevel} · {c.payload.language}
                 </div>
+                {c.response && typeof c.response === 'object' && Array.isArray((c.response as any).practice_questions) ? (
+                  <div className="mt-3 space-y-2">
+                    {((c.response as any).practice_questions as any[])
+                      .slice(0, 2)
+                      .map((q, idx) => (
+                        <div key={idx} className="rounded-md border border-gray-100 bg-gray-50 p-2">
+                          <div className="text-xs font-semibold text-gray-800">Q{idx + 1}: {String(q?.question ?? '')}</div>
+                          {q?.hint ? (
+                            <div className="mt-1 text-[11px] text-gray-600">Hint: {String(q.hint)}</div>
+                          ) : null}
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
                 <div className="mt-2 text-[11px] text-gray-500">Saved: {new Date(c.cachedAt).toLocaleString()}</div>
               </button>
             ))}

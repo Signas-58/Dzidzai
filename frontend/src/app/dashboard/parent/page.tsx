@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../components/providers/AuthProvider';
 import { apiFetch } from '../../../lib/api';
+import { roleToDashboard } from '../../../lib/authRedirect';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Pie, PieChart, Cell, Legend } from 'recharts';
 
 type ChildDto = { id: string; name: string; gradeLevel: number; preferredLanguage: string };
@@ -33,6 +34,16 @@ type RecommendationsDto = {
     message: string;
     attempts: number;
     averageConfidenceScore: number;
+  }[];
+};
+
+type ChildrenSummaryDto = {
+  children: {
+    id: string;
+    name: string;
+    lessonsTaken: number;
+    studyTimeSeconds: number;
+    subjects: { subject: string; count: number }[];
   }[];
 };
 
@@ -69,6 +80,7 @@ export default function ParentDashboardPage() {
   const [overview, setOverview] = useState<OverviewDto | null>(null);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
   const [recs, setRecs] = useState<RecommendationsDto | null>(null);
+  const [childrenSummary, setChildrenSummary] = useState<ChildrenSummaryDto | null>(null);
 
   const [dashLoading, setDashLoading] = useState(false);
   const [dashError, setDashError] = useState<string | null>(null);
@@ -116,7 +128,7 @@ export default function ParentDashboardPage() {
       const res = await apiFetch<{ success: boolean; data: ChildDto }>(`/users/children`, {
         method: 'POST',
         token: tokens.accessToken,
-        body: JSON.stringify(payload),
+        body: payload,
       });
 
       setChildren((prev) => [res.data, ...prev]);
@@ -142,7 +154,7 @@ export default function ParentDashboardPage() {
       return;
     }
     if (role && role !== 'PARENT') {
-      router.replace('/dashboard/teacher');
+      router.replace(roleToDashboard(role));
     }
   }, [isLoading, tokens?.accessToken, role, router]);
 
@@ -171,6 +183,29 @@ export default function ParentDashboardPage() {
       cancelled = true;
     };
   }, [tokens?.accessToken, selectedChildId]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch<{ success: boolean; data: ChildrenSummaryDto }>(`/analytics/children-summary`, {
+          method: 'GET',
+          token: tokens.accessToken,
+        });
+        if (cancelled) return;
+        setChildrenSummary(res.data);
+      } catch {
+        if (cancelled) return;
+        setChildrenSummary(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tokens?.accessToken]);
 
   useEffect(() => {
     if (!tokens?.accessToken) return;
@@ -245,6 +280,58 @@ export default function ParentDashboardPage() {
           <Button variant="outline" onClick={logout}>Logout</Button>
         </div>
       </div>
+
+      {childrenSummary?.children?.length ? (
+        <div className="mt-6 card">
+          <h2 className="text-lg font-semibold text-gray-900">Kids&apos; Study Summary</h2>
+          <p className="mt-1 text-sm text-gray-600">Study time and number of lessons taken per child.</p>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {childrenSummary.children.map((c) => {
+              const minutes = Math.round((c.studyTimeSeconds || 0) / 60);
+              const topSubjects = (c.subjects || []).slice(0, 3);
+              return (
+                <div key={c.id} className="rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">{c.name}</div>
+                      <div className="mt-1 text-xs text-gray-600">
+                        Lessons taken: <span className="font-semibold text-gray-800">{c.lessonsTaken}</span>
+                        {' '}· Study time: <span className="font-semibold text-gray-800">{minutes} min</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs text-primary-700 hover:underline"
+                      onClick={() => setSelectedChildId(c.id)}
+                    >
+                      View details
+                    </button>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="text-xs font-semibold text-gray-500">Subjects</div>
+                    {!topSubjects.length ? (
+                      <div className="mt-1 text-xs text-gray-600">No subjects yet.</div>
+                    ) : (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {topSubjects.map((s) => (
+                          <span
+                            key={`${c.id}-${s.subject}`}
+                            className="rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700"
+                          >
+                            {s.subject}: {s.count}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="text-sm text-gray-600">

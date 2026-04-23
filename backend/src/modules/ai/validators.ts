@@ -25,11 +25,34 @@ function normalizeLanguage(lang: string): SupportedLanguage | null {
 }
 
 export function parseJsonStrict(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new AIValidationError('AI response is not valid JSON');
+  const raw = String(text ?? '').trim();
+  const attemptParse = (candidate: string) => {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  };
+
+  const direct = attemptParse(raw);
+  if (direct !== null) return direct;
+
+  const withoutFences = raw
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const fenceParsed = attemptParse(withoutFences);
+  if (fenceParsed !== null) return fenceParsed;
+
+  const firstBrace = withoutFences.indexOf('{');
+  const lastBrace = withoutFences.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const extracted = withoutFences.slice(firstBrace, lastBrace + 1);
+    const extractedParsed = attemptParse(extracted);
+    if (extractedParsed !== null) return extractedParsed;
   }
+
+  throw new AIValidationError('AI response is not valid JSON');
 }
 
 export function validateAIGenerateResponse(
@@ -61,6 +84,21 @@ export function validateAIGenerateResponse(
       answer: String(qq.answer),
     };
   });
+
+  const normalizedQuestions = practice_questions.map((q) => {
+    const raw = q.question.trim().toLowerCase();
+    // Remove leading numbering like "1." or "1)" or "q1:" to catch duplicates with cosmetic differences
+    const withoutLeadingNumber = raw.replace(/^\s*(q\s*)?\d+\s*[\)\.:\-]+\s*/i, '');
+    // Normalize punctuation/quotes/extra whitespace so minor formatting differences don't bypass duplicate detection
+    return withoutLeadingNumber
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+  });
+  const uniqueCount = new Set(normalizedQuestions).size;
+  if (uniqueCount !== normalizedQuestions.length) {
+    throw new AIValidationError('Duplicate practice questions');
+  }
 
   const langRaw = obj.language;
   if (!isNonEmptyString(langRaw)) throw new AIValidationError('Missing language');

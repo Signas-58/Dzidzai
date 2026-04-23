@@ -149,4 +149,68 @@ export class AnalyticsService {
 
     return { recommendations };
   }
+
+  static async getChildrenSummary(input: { userId: string }) {
+    const children = await prisma.child.findMany({
+      where: { parentId: input.userId },
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!children.length) {
+      return { children: [] as Array<{ id: string; name: string; lessonsTaken: number; studyTimeSeconds: number; subjects: { subject: string; count: number }[] }> };
+    }
+
+    const childIds = children.map((c) => c.id);
+
+    const [lessonCountsByChild, subjectsByChild, timeSpentByChild] = await Promise.all([
+      prisma.learningActivity.groupBy({
+        by: ['childId'],
+        where: { childId: { in: childIds } },
+        _count: { _all: true },
+      }),
+      prisma.learningActivity.groupBy({
+        by: ['childId', 'subject'],
+        where: { childId: { in: childIds } },
+        _count: { _all: true },
+      }),
+      prisma.userProgress.groupBy({
+        by: ['userId'],
+        where: { userId: { in: childIds } },
+        _sum: { timeSpent: true },
+      }),
+    ]);
+
+    const lessonsTakenMap = new Map<string, number>();
+    for (const r of lessonCountsByChild) {
+      if (!r.childId) continue;
+      lessonsTakenMap.set(r.childId, r._count?._all || 0);
+    }
+
+    const subjectsMap = new Map<string, { subject: string; count: number }[]>();
+    for (const r of subjectsByChild) {
+      if (!r.childId) continue;
+      const arr = subjectsMap.get(r.childId) || [];
+      arr.push({ subject: r.subject, count: r._count?._all || 0 });
+      subjectsMap.set(r.childId, arr);
+    }
+
+    const timeSpentMap = new Map<string, number>();
+    for (const r of timeSpentByChild) {
+      timeSpentMap.set(r.userId, r._sum?.timeSpent || 0);
+    }
+
+    const summaries = children.map((c) => {
+      const subjects = (subjectsMap.get(c.id) || []).sort((a, b) => b.count - a.count);
+      return {
+        id: c.id,
+        name: c.name,
+        lessonsTaken: lessonsTakenMap.get(c.id) || 0,
+        studyTimeSeconds: timeSpentMap.get(c.id) || 0,
+        subjects,
+      };
+    });
+
+    return { children: summaries };
+  }
 }

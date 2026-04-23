@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../components/providers/AuthProvider';
+import { roleToDashboard } from '../../../lib/authRedirect';
 
 export default function TeacherDashboardPage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function TeacherDashboardPage() {
       return;
     }
     if (role && role !== 'ADMIN') {
-      router.replace('/dashboard/parent');
+      router.replace(roleToDashboard(role));
     }
   }, [isLoading, tokens?.accessToken, role, router]);
 

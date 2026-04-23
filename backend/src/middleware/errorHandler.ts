@@ -19,8 +19,8 @@ export const errorHandler = (
   logger.error(err);
 
   // Default error
-  let statusCode = 500;
-  let message = 'Internal Server Error';
+  let statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+  let message = err.message || 'Internal Server Error';
 
   // JWT error
   if (err.name === 'JsonWebTokenError') {

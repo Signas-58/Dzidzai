@@ -7,7 +7,7 @@ interface AuthContextType {
   user: BackendUser | null;
   tokens: BackendTokens | null;
   role: BackendRole | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthResponse>;
   register: (userData: { email: string; password: string; firstName: string; lastName: string; role: BackendRole }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const data = await loginApi({ email, password });
     applyAuth(data);
+    return data;
   };
 
   const register = async (userData: { email: string; password: string; firstName: string; lastName: string; role: BackendRole }) => {

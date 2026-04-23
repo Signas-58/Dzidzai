@@ -1,6 +1,6 @@
 import { apiFetch } from './api';
 
-export type BackendRole = 'PARENT' | 'ADMIN';
+export type BackendRole = 'PARENT' | 'ADMIN' | 'CHILD';
 
 export interface BackendUser {
   id: string;

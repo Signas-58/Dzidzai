@@ -101,7 +101,12 @@ function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateRe
 
   const example = pick(exampleTemplates)();
 
-  const practice_questions = Array.from({ length: band === 'upper' ? 6 : 4 }).map(() => {
+  const desiredCount = band === 'early' ? 3 : band === 'mid' ? 4 : 5;
+  const practice_questions: Array<{ question: string; hint: string; answer: string }> = [];
+  const seen = new Set<string>();
+  let guard = 0;
+  while (practice_questions.length < desiredCount && guard < 50) {
+    guard++;
     const x = randInt(1, Math.floor(maxN / 2));
     const y = randInt(1, Math.floor(maxN / 2));
     const ans = x + y;
@@ -112,6 +117,11 @@ function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateRe
       () => langText(lang, `${name} ane ${x}, awana ${y} futi. Zvino zvese = ?`, `${name} ule ${x}, uthola ${y} futhi. Manje konke = ?`, `${name} uli ${x}, waapegwa ${y} futi. Kuno konke = ?`),
     ];
 
+    const q = pick(qTemplates)();
+    const key = q.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
     const hint = langText(
       lang,
       band === 'early' ? 'Verenga zvishoma nezvishoma paunenge uchingeza.' : 'Ziva kuti kuwedzera = kuisa pamwe chete.',
@@ -119,12 +129,12 @@ function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateRe
       band === 'early' ? 'Bala kancane kancane kana uonjezya.' : 'Ikumbula kuonjezya = kuhlanganisya.'
     );
 
-    return {
-      question: pick(qTemplates)(),
+    practice_questions.push({
+      question: q,
       hint,
       answer: String(ans),
-    };
-  });
+    });
+  }
 
   return {
     explanation,
@@ -176,22 +186,68 @@ function buildGeneric(input: AIGenerateRequest, ragHint?: string): AIGenerateRes
       : `Isibonelo: Lemba milongo ibili nangu itatu pa "${input.topic}".`
   );
 
-  const practice_questions = Array.from({ length: band === 'upper' ? 6 : 4 }).map((_, idx) => {
-    const q = langText(
-      lang,
-      `${idx + 1}. Chii chinonzi "${input.topic}"?`,
-      `${idx + 1}. Kuyini "${input.topic}"?`,
-      `${idx + 1}. Nchichi "${input.topic}"?`
-    );
+  const desiredCount = band === 'early' ? 3 : band === 'mid' ? 4 : 5;
+  const baseQuestions = [
+    {
+      question: langText(
+        lang,
+        `Chii chinonzi "${input.topic}"?`,
+        `Kuyini "${input.topic}"?`,
+        `Nchichi "${input.topic}"?`
+      ),
+      hint: langText(lang, 'Tsanangura nemashoko mashoma.', 'Chaza ngamazwi ambalwa.', 'Chaza namazwi masyo amfwe.'),
+      answer: '...',
+    },
+    {
+      question: langText(
+        lang,
+        `Taura muenzaniso mumwe we "${input.topic}" muhupenyu hwezuva nezuva.`,
+        `Nika isibonelo esisodwa se "${input.topic}" empilweni yansuku zonke.`,
+        `Pa isibonelo cimwi ca "${input.topic}" mu bwumi bwa mazuba onse.`
+      ),
+      hint: langText(lang, 'Funga zvinhu zvaunoona kana kuita zuva nezuva.', 'Cabanga izinto ozenzayo nsuku zonke.', 'Funga zintu zya mazuba onse.'),
+      answer: '...',
+    },
+    {
+      question: langText(
+        lang,
+        `Nei "${input.topic}" yakakosha? Nyora chikonzero chimwe.`,
+        `Kungani "${input.topic}" kubalulekile? Bhala isizathu esisodwa.`,
+        `Nkaambo nzi "${input.topic}" chiyabambwa? Lemba chikonzero cimwi.`
+      ),
+      hint: langText(lang, 'Tanga ne: “Inokosha nekuti…”', 'Qala ngo: “Kubalulekile ngoba…”', 'Tanga ne: “Chiyabambwa nkaambo…”'),
+      answer: '...',
+    },
+    {
+      question: langText(
+        lang,
+        `Nyora mazwi maviri matsva aunodzidza pa "${input.topic}" uye tsanangura rimwe nerimwe.`,
+        `Bhala amagama amabili amatsha owafundayo ku "${input.topic}" ube uchaze ngalinye.`,
+        `Lemba mazwi mabili atsha aunosambilila pa "${input.topic}" ubochaza limwi na limwi.`
+      ),
+      hint: langText(lang, 'Sarudza mazwi ari nyore.', 'Khetha amagama alula.', 'Sankanya mazwi alula.'),
+      answer: '...',
+    },
+    {
+      question: langText(
+        lang,
+        `${name} anofanira kushandisa "${input.topic}" sei? Nyora nhanho mbiri.`,
+        `${name} angasebenzisa njani "${input.topic}"? Bhala amanyathelo amabili.`,
+        `${name} angashandisa njani "${input.topic}"? Lemba zinyathelo zibiji.`
+      ),
+      hint: langText(lang, 'Nyora nhanho 1 uye nhanho 2.', 'Bhala isinyathelo 1 lesi 2.', 'Lemba inyathelo 1 ne 2.'),
+      answer: '...',
+    },
+  ];
 
-    const hint = langText(
-      lang,
-      'Shandisa mashoko mashoma uye akajeka.',
-      'Sebenzisa amazwi ambalwa acacileyo.',
-      'Sebenzisa mazwi masyo amfwe, acacileyo.'
-    );
-
-    return { question: q, hint, answer: '...'};
+  const practice_questions = baseQuestions.slice(0, desiredCount).map((q) => {
+    if (band === 'early') {
+      return {
+        ...q,
+        hint: langText(lang, 'Pindura nemutsara mumwe.', 'Phendula ngomusho owodwa.', 'Pindula na mulongo umodzi.'),
+      };
+    }
+    return q;
   });
 
   return {

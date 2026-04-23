@@ -13,7 +13,7 @@ import { roleToDashboard } from '../../lib/authRedirect';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, role } = useAuth();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,15 +30,10 @@ export default function LoginPage() {
 
     setIsLoading(true);
     try {
-      await login(email.trim(), password);
+      const auth = await login(email.trim(), password);
       toast.success('Welcome back');
 
-      // role might not update synchronously; do a short microtask to allow context update
-      setTimeout(() => {
-        const r = role;
-        if (r) router.push(roleToDashboard(r));
-        else router.push('/dashboard/parent');
-      }, 0);
+      router.push(roleToDashboard(auth.user.role));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Login failed');
     } finally {

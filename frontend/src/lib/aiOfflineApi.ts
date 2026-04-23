@@ -4,6 +4,7 @@ import {
   enqueueRequest,
   getCachedResponse,
   upsertCachedResponse,
+  readCache,
   readQueue,
   dequeueRequest,
   setLastSynced,
@@ -59,4 +60,41 @@ export async function syncQueuedAIRequests(token: string) {
 
   setLastSynced(new Date().toISOString());
   return { synced };
+}
+
+export async function syncCachedLessonsToBackend(token: string) {
+  const cache = readCache();
+  if (cache.length === 0) return { synced: 0, deduped: 0 };
+
+  const activities = cache
+    .map((c) => {
+      const confidenceScore = (c.response as any)?.confidenceScore;
+      if (typeof confidenceScore !== 'number') return null;
+      const cachedAt = new Date(c.cachedAt);
+      const ts = Number.isNaN(cachedAt.getTime()) ? 0 : cachedAt.getTime();
+      const idempotencyKey = `cache-${c.key}-${ts}`;
+      return {
+        idempotencyKey,
+        subject: c.payload.subject,
+        topic: c.payload.topic,
+        gradeLevel: c.payload.gradeLevel,
+        language: c.payload.language,
+        confidenceScore,
+      };
+    })
+    .filter(Boolean);
+
+  if (activities.length === 0) return { synced: 0, deduped: 0 };
+
+  const res = await apiFetch<{ success: boolean; data: { inserted: number; deduped: number; received: number } }>(
+    `/ai/sync-activities`,
+    {
+      method: 'POST',
+      token,
+      body: { activities },
+    }
+  );
+
+  setLastSynced(new Date().toISOString());
+  return { synced: res.data.inserted, deduped: res.data.deduped };
 }

@@ -67,10 +67,19 @@ export class AIController {
           const idempotencyKeyHeader = req.header('Idempotency-Key');
           const idempotencyKey = idempotencyKeyHeader && idempotencyKeyHeader.trim() ? idempotencyKeyHeader.trim() : null;
 
+          let resolvedChildId: string | null = childId && typeof childId === 'string' ? childId : null;
+          if (!resolvedChildId) {
+            const child = await prisma.child.findFirst({
+              where: { userId: req.user.id },
+              select: { id: true },
+            });
+            resolvedChildId = child?.id || null;
+          }
+
           await prisma.learningActivity.create({
             data: {
               userId: req.user.id,
-              childId: childId && typeof childId === 'string' ? childId : null,
+              childId: resolvedChildId,
               idempotencyKey,
               subject,
               topic: topic.trim(),
@@ -111,6 +120,84 @@ export class AIController {
         success: false,
         error: err instanceof Error ? err.message : 'AI generation failed',
       });
+    }
+  }
+
+  static async syncActivities(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ success: false, error: 'Authentication required' });
+        return;
+      }
+
+      const body = req.body as unknown;
+      const activities = (body && typeof body === 'object' && (body as any).activities) as unknown;
+      if (!Array.isArray(activities) || activities.length === 0) {
+        res.status(400).json({ success: false, error: 'activities must be a non-empty array' });
+        return;
+      }
+
+      let resolvedChildId: string | null = null;
+      {
+        const child = await prisma.child.findFirst({
+          where: { userId: req.user.id },
+          select: { id: true },
+        });
+        resolvedChildId = child?.id || null;
+      }
+
+      let inserted = 0;
+      let deduped = 0;
+
+      for (const a of activities) {
+        const subject = (a as any)?.subject;
+        const topic = (a as any)?.topic;
+        const gradeLevel = (a as any)?.gradeLevel;
+        const language = (a as any)?.language;
+        const confidenceScore = (a as any)?.confidenceScore;
+        const idempotencyKey = (a as any)?.idempotencyKey;
+
+        if (
+          typeof subject !== 'string' ||
+          typeof topic !== 'string' ||
+          typeof gradeLevel !== 'string' ||
+          typeof language !== 'string' ||
+          typeof confidenceScore !== 'number' ||
+          typeof idempotencyKey !== 'string' ||
+          !idempotencyKey.trim()
+        ) {
+          continue;
+        }
+
+        try {
+          await prisma.learningActivity.create({
+            data: {
+              userId: req.user.id,
+              childId: resolvedChildId,
+              idempotencyKey: idempotencyKey.trim(),
+              subject: subject.trim(),
+              topic: topic.trim(),
+              gradeLevel: gradeLevel.trim(),
+              language: language.trim(),
+              confidenceScore,
+            },
+          });
+          inserted += 1;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          const isUnique = msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('constraint');
+          if (isUnique) {
+            deduped += 1;
+            continue;
+          }
+          logger.warn('Failed to sync LearningActivity row', e);
+        }
+      }
+
+      res.status(200).json({ success: true, data: { inserted, deduped, received: activities.length } });
+    } catch (err) {
+      logger.error('AI syncActivities error', err);
+      res.status(500).json({ success: false, error: err instanceof Error ? err.message : 'Sync failed' });
     }
   }
 }

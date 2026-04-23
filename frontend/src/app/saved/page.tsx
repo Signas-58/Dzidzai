@@ -1,9 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '../../components/ui/Button';
 import { readCache, CachedAIResponse, getLastSynced } from '../../lib/offlineStore';
+import toast from 'react-hot-toast';
+import { useAuth } from '../../components/providers/AuthProvider';
+import { syncCachedLessonsToBackend } from '../../lib/aiOfflineApi';
 
 function formatLastSynced(iso: string | null) {
   if (!iso) return 'Never';
@@ -15,8 +18,16 @@ function formatLastSynced(iso: string | null) {
 export default function SavedLessonsPage() {
   const [selected, setSelected] = useState<CachedAIResponse | null>(null);
 
-  const cache = useMemo(() => readCache(), []);
-  const lastSynced = useMemo(() => getLastSynced(), []);
+  const { tokens } = useAuth();
+  const [syncing, setSyncing] = useState(false);
+
+  const [cache, setCache] = useState<CachedAIResponse[]>([]);
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCache(readCache());
+    setLastSynced(getLastSynced());
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
@@ -26,6 +37,31 @@ export default function SavedLessonsPage() {
           <p className="text-gray-600 text-sm">Last synced: {formatLastSynced(lastSynced)}</p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            className="h-10"
+            type="button"
+            disabled={!tokens?.accessToken || syncing}
+            onClick={async () => {
+              if (!tokens?.accessToken) {
+                toast.error('Please log in to sync.');
+                return;
+              }
+              setSyncing(true);
+              try {
+                const res = await syncCachedLessonsToBackend(tokens.accessToken);
+                setLastSynced(new Date().toISOString());
+                toast.success(`Synced ${res.synced} lesson(s).`);
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : 'Sync failed');
+              } finally {
+                setSyncing(false);
+              }
+            }}
+            aria-label="Sync saved lessons"
+          >
+            {syncing ? 'Syncing...' : 'Sync to Account'}
+          </Button>
           <Link href="/learn" className="text-sm text-primary-700 hover:underline">Back to Learn</Link>
         </div>
       </div>

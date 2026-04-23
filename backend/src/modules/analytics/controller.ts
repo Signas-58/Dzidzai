@@ -66,4 +66,14 @@ export class AnalyticsController {
 
     res.status(200).json({ success: true, data });
   }
+
+  static async childrenSummary(req: Request, res: Response): Promise<void> {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const data = await AnalyticsService.getChildrenSummary({ userId: req.user.id });
+    res.status(200).json({ success: true, data });
+  }
 }
