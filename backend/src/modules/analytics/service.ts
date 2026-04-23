@@ -153,7 +153,7 @@ export class AnalyticsService {
   static async getChildrenSummary(input: { userId: string }) {
     const children = await prisma.child.findMany({
       where: { parentId: input.userId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, userId: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -163,15 +163,31 @@ export class AnalyticsService {
 
     const childIds = children.map((c) => c.id);
 
-    const [lessonCountsByChild, subjectsByChild, timeSpentByChild] = await Promise.all([
+    const childUserIdToChildId = new Map<string, string>();
+    for (const c of children) {
+      if (c.userId) childUserIdToChildId.set(c.userId, c.id);
+    }
+    const childUserIds = Array.from(childUserIdToChildId.keys());
+
+    const [lessonCountsByChild, lessonCountsByUser, subjectsByChild, subjectsByUser, timeSpentByChild] = await Promise.all([
       prisma.learningActivity.groupBy({
         by: ['childId'],
         where: { childId: { in: childIds } },
         _count: { _all: true },
       }),
       prisma.learningActivity.groupBy({
+        by: ['userId'],
+        where: { childId: null, userId: { in: childUserIds.length ? childUserIds : ['__none__'] } },
+        _count: { _all: true },
+      }),
+      prisma.learningActivity.groupBy({
         by: ['childId', 'subject'],
         where: { childId: { in: childIds } },
+        _count: { _all: true },
+      }),
+      prisma.learningActivity.groupBy({
+        by: ['userId', 'subject'],
+        where: { childId: null, userId: { in: childUserIds.length ? childUserIds : ['__none__'] } },
         _count: { _all: true },
       }),
       prisma.userProgress.groupBy({
@@ -187,12 +203,31 @@ export class AnalyticsService {
       lessonsTakenMap.set(r.childId, r._count?._all || 0);
     }
 
+    for (const r of lessonCountsByUser) {
+      const childId = childUserIdToChildId.get(r.userId);
+      if (!childId) continue;
+      lessonsTakenMap.set(childId, (lessonsTakenMap.get(childId) || 0) + (r._count?._all || 0));
+    }
+
     const subjectsMap = new Map<string, { subject: string; count: number }[]>();
     for (const r of subjectsByChild) {
       if (!r.childId) continue;
       const arr = subjectsMap.get(r.childId) || [];
       arr.push({ subject: r.subject, count: r._count?._all || 0 });
       subjectsMap.set(r.childId, arr);
+    }
+
+    for (const r of subjectsByUser) {
+      const childId = childUserIdToChildId.get(r.userId);
+      if (!childId) continue;
+      const arr = subjectsMap.get(childId) || [];
+      const existing = arr.find((x) => x.subject === r.subject);
+      if (existing) {
+        existing.count += r._count?._all || 0;
+      } else {
+        arr.push({ subject: r.subject, count: r._count?._all || 0 });
+      }
+      subjectsMap.set(childId, arr);
     }
 
     const timeSpentMap = new Map<string, number>();
