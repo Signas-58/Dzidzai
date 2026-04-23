@@ -1,6 +1,6 @@
 # DzidzaAI - Indigenous Language Learning Platform
 
-An AI-powered educational platform supporting indigenous language learning in Zimbabwe (Shona, Ndebele, and Tonga) for primary school students (ECD to Grade 7).
+An AI-powered educational platform supporting indigenous language learning in Zimbabwe (English, Shona, Ndebele, and Tonga) for primary school students (ECD to Grade 7).
 
 ## Features
 
