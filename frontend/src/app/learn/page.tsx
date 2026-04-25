@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../components/providers/AuthProvider';
 import { generateAIWithOfflineSupport } from '../../lib/aiOfflineApi';
-import { AIGeneratePayload, getLastLearnInputs, getLastSynced, readCache, setLastLearnInputs } from '../../lib/offlineStore';
+import { AIGeneratePayload, getLastLearnInputs, getLastSynced, makeAIKey, readCache, setLastLearnInputs } from '../../lib/offlineStore';
 import { SpeechControls } from '../../components/ui/SpeechControls';
 import { ApiError, apiFetch } from '../../lib/api';
 
@@ -65,6 +65,8 @@ export default function LearnPage() {
   const [practiceMode, setPracticeMode] = useState(false);
   const [practiceAnswers, setPracticeAnswers] = useState<Record<number, string>>({});
   const [practiceChecked, setPracticeChecked] = useState(false);
+  const [studyStartedAt, setStudyStartedAt] = useState<number | null>(null);
+  const [lastLessonKey, setLastLessonKey] = useState<string | null>(null);
 
   const [translateTo, setTranslateTo] = useState<(typeof TRANSLATE_TARGETS)[number]>('Shona');
 
@@ -157,7 +159,7 @@ export default function LearnPage() {
     [subject, topic, gradeLevel, language, selectedChildId]
   );
 
-  const onGenerate = async (opts?: { improve?: boolean; mode?: 'simplify' | 'translate'; translateTo?: string }) => {
+  const onGenerate = async (opts?: { improve?: boolean; mode?: 'simplify' | 'translate'; translateTo?: (typeof TRANSLATE_TARGETS)[number] }) => {
     if (!tokens?.accessToken) return;
     if (!topic || !String(topic).trim()) {
       toast.error('Please select a topic');
@@ -198,6 +200,16 @@ export default function LearnPage() {
         setResult({ queuedId: res.queuedId });
         toast('Offline: request queued. It will sync when online.');
       }
+
+      const payloadForKey: AIGeneratePayload = {
+        subject,
+        topic,
+        gradeLevel,
+        language,
+        ...(selectedChildId ? { childId: selectedChildId } : {}),
+      };
+      setLastLessonKey(makeAIKey(payloadForKey));
+      setStudyStartedAt(Date.now());
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) {
@@ -216,6 +228,45 @@ export default function LearnPage() {
       setBusy(false);
     }
   };
+
+  async function flushStudyTime(seconds: number, completed: boolean) {
+    if (!tokens?.accessToken) return;
+    if (!lastLessonKey) return;
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+
+    try {
+      await apiFetch(`/content/progress`, {
+        method: 'POST',
+        token: tokens.accessToken,
+        body: {
+          lessonId: lastLessonKey,
+          timeSpent: Math.round(seconds),
+          completed,
+          ...(selectedChildId ? { childId: selectedChildId } : {}),
+        },
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    const handler = () => {
+      if (!studyStartedAt) return;
+      const seconds = (Date.now() - studyStartedAt) / 1000;
+      void flushStudyTime(seconds, false);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handler);
+      window.addEventListener('pagehide', handler);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handler);
+        window.removeEventListener('pagehide', handler);
+      }
+    };
+  }, [studyStartedAt, lastLessonKey, tokens?.accessToken]);
 
   const confidenceScore = (result && typeof result === 'object' && (result as any).confidenceScore !== undefined)
     ? (result as any).confidenceScore
@@ -240,7 +291,7 @@ export default function LearnPage() {
   const allPracticeAnswered = practiceQuestions.length > 0 && missingPracticeCount === 0;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
+    <div className="w-full mx-auto px-4 md:px-8 py-8 animate-fade-in">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Learn</h1>
@@ -470,6 +521,11 @@ export default function LearnPage() {
                     return;
                   }
                   setPracticeChecked(true);
+                  if (studyStartedAt) {
+                    const seconds = (Date.now() - studyStartedAt) / 1000;
+                    void flushStudyTime(seconds, true);
+                    setStudyStartedAt(null);
+                  }
                 }}
                 disabled={!practiceQuestions.length}
                 aria-label="Check answers"

@@ -5,6 +5,7 @@ import { AnalyticsController } from './controller';
 const router = Router();
 
 router.get('/overview', authenticate, AnalyticsController.overview);
+router.get('/study-time', authenticate, AnalyticsController.studyTime);
 router.get('/progress', authenticate, AnalyticsController.progress);
 router.get('/recommendations', authenticate, AnalyticsController.recommendations);
 router.get('/children-summary', authenticate, AnalyticsController.childrenSummary);

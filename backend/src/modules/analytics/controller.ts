@@ -25,6 +25,26 @@ export class AnalyticsController {
     res.status(200).json({ success: true, data });
   }
 
+  static async studyTime(req: Request, res: Response): Promise<void> {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Authentication required' });
+      return;
+    }
+
+    const childId = typeof req.query.childId === 'string' ? req.query.childId : undefined;
+    const granularity = parseGranularity(req.query.granularity);
+    const days = typeof req.query.days === 'string' ? Number(req.query.days) : undefined;
+
+    const data = await AnalyticsService.getStudyTimeProgress({
+      userId: req.user.id,
+      childId,
+      granularity,
+      days,
+    });
+
+    res.status(200).json({ success: true, data });
+  }
+
   static async progress(req: Request, res: Response): Promise<void> {
     if (!req.user?.id) {
       res.status(401).json({ success: false, error: 'Authentication required' });

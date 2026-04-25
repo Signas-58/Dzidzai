@@ -22,7 +22,7 @@ export default function ChildDashboardPage() {
   }, [isLoading, tokens?.accessToken, role, router]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
+    <div className="w-full mx-auto px-4 md:px-8 py-8 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Learning Dashboard</h1>

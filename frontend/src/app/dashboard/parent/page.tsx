@@ -1,7 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
 import { useAuth } from '../../../components/providers/AuthProvider';
@@ -24,6 +25,12 @@ type ProgressDto = {
   granularity: 'daily' | 'weekly';
   days: number;
   series: { date: string; count: number }[];
+};
+
+type StudyTimeDto = {
+  granularity: 'daily' | 'weekly';
+  days: number;
+  series: { date: string; minutes: number }[];
 };
 
 type RecommendationsDto = {
@@ -74,11 +81,14 @@ export default function ParentDashboardPage() {
   const router = useRouter();
   const { user, tokens, role, isLoading, logout } = useAuth();
 
+  const chartsRef = useRef<HTMLDivElement | null>(null);
+
   const [children, setChildren] = useState<ChildDto[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('');
 
   const [overview, setOverview] = useState<OverviewDto | null>(null);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
+  const [studyTime, setStudyTime] = useState<StudyTimeDto | null>(null);
   const [recs, setRecs] = useState<RecommendationsDto | null>(null);
   const [childrenSummary, setChildrenSummary] = useState<ChildrenSummaryDto | null>(null);
 
@@ -185,6 +195,11 @@ export default function ParentDashboardPage() {
   }, [tokens?.accessToken, selectedChildId]);
 
   useEffect(() => {
+    if (!selectedChildId) return;
+    chartsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedChildId]);
+
+  useEffect(() => {
     if (!tokens?.accessToken) return;
 
     let cancelled = false;
@@ -219,8 +234,13 @@ export default function ParentDashboardPage() {
       try {
         const childIdParam = selectedChildId ? `?childId=${encodeURIComponent(selectedChildId)}` : '';
 
-        const [o, p, r] = await Promise.all([
+        const [o, st, p, r] = await Promise.all([
           apiFetch<{ success: boolean; data: OverviewDto }>(`/analytics/overview${childIdParam}`, {
+            method: 'GET',
+            token: tokens.accessToken,
+            signal: controller.signal,
+          }),
+          apiFetch<{ success: boolean; data: StudyTimeDto }>(`/analytics/study-time${childIdParam}`, {
             method: 'GET',
             token: tokens.accessToken,
             signal: controller.signal,
@@ -239,6 +259,7 @@ export default function ParentDashboardPage() {
 
         if (cancelled) return;
         setOverview(o.data);
+        setStudyTime(st.data);
         setProgress(p.data);
         setRecs(r.data);
       } catch (e) {
@@ -268,8 +289,10 @@ export default function ParentDashboardPage() {
     return overview?.subjectDistribution?.map((s) => ({ name: s.subject, value: s.count })) || [];
   }, [overview]);
 
+  const studyTimeSeries = studyTime?.series || [];
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
+    <div className="w-full mx-auto px-4 md:px-8 py-8 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Parent Dashboard</h1>
@@ -281,13 +304,67 @@ export default function ParentDashboardPage() {
         </div>
       </div>
 
-      {childrenSummary?.children?.length ? (
-        <div className="mt-6 card">
-          <h2 className="text-lg font-semibold text-gray-900">Kids&apos; Study Summary</h2>
-          <p className="mt-1 text-sm text-gray-600">Study time and number of lessons taken per child.</p>
+      <div className="mt-6 card">
+        <h2 className="text-lg font-semibold text-gray-900">Kids&apos; Study Summary</h2>
+        <p className="mt-1 text-sm text-gray-600">Study time and number of lessons taken per child.</p>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {childrenSummary.children.map((c) => {
+        {selectedChildId ? (
+          <div ref={chartsRef} className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-semibold text-gray-900">Time Spent Studying</div>
+              <div className="mt-1 text-xs text-gray-600">Minutes spent studying over time.</div>
+
+              {!studyTimeSeries.length ? (
+                <div className="mt-4 rounded-md border border-gray-200 p-4 text-sm text-gray-700">No data yet.</div>
+              ) : (
+                <div className="mt-4" style={{ width: '100%', height: 240 }}>
+                  <ResponsiveContainer>
+                    <LineChart data={studyTimeSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Line type="monotone" dataKey="minutes" stroke="#2563eb" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-200 p-4">
+              <div className="text-sm font-semibold text-gray-900">Subjects Studied</div>
+              <div className="mt-1 text-xs text-gray-600">Subject distribution for selected child.</div>
+
+              <div className="mt-3 text-xs text-gray-700">
+                <span className="font-semibold">Most studied subject:</span> {overview?.mostStudiedSubject || '—'}
+              </div>
+
+              {!subjectPieData.length ? (
+                <div className="mt-4 rounded-md border border-gray-200 p-4 text-sm text-gray-700">No subjects yet.</div>
+              ) : (
+                <div className="mt-2" style={{ width: '100%', height: 240 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie data={subjectPieData} dataKey="value" nameKey="name" outerRadius={80}>
+                        {subjectPieData.map((_, idx) => (
+                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-700">
+            Click <span className="font-semibold">View details</span> on a child below to see charts.
+          </div>
+        )}
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {(childrenSummary?.children || []).map((c) => {
               const minutes = Math.round((c.studyTimeSeconds || 0) / 60);
               const topSubjects = (c.subjects || []).slice(0, 3);
               return (
@@ -328,10 +405,9 @@ export default function ParentDashboardPage() {
                   </div>
                 </div>
               );
-            })}
-          </div>
+          })}
         </div>
-      ) : null}
+      </div>
 
       <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="text-sm text-gray-600">

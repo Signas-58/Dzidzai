@@ -30,7 +30,7 @@ export default function SavedLessonsPage() {
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 animate-fade-in">
+    <div className="w-full mx-auto px-4 md:px-8 py-8 animate-fade-in">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">📚 Saved Lessons</h1>

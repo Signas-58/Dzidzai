@@ -87,6 +87,55 @@ export class AnalyticsService {
     return { granularity, days, series };
   }
 
+  static async getStudyTimeProgress(input: {
+    userId: string;
+    childId?: string;
+    granularity?: AnalyticsGranularity;
+    days?: number;
+  }) {
+    const days = input.days && input.days > 0 ? Math.min(input.days, 365) : 30;
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+
+    const children = await prisma.child.findMany({
+      where: {
+        parentId: input.userId,
+        ...(input.childId ? { id: input.childId } : {}),
+      },
+      select: { id: true },
+    });
+
+    const childIds = children.map((c) => c.id);
+    if (childIds.length === 0) {
+      return { granularity: input.granularity || 'daily', days, series: [] as Array<{ date: string; minutes: number }> };
+    }
+
+    const rows = await prisma.userProgress.findMany({
+      where: {
+        userId: { in: childIds },
+        createdAt: { gte: start },
+      },
+      select: { createdAt: true, timeSpent: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const granularity: AnalyticsGranularity = input.granularity || 'daily';
+    const buckets = new Map<string, number>();
+    for (const r of rows) {
+      const key =
+        granularity === 'weekly'
+          ? toDateOnlyKey(startOfIsoWeek(r.createdAt))
+          : toDateOnlyKey(r.createdAt);
+      buckets.set(key, (buckets.get(key) || 0) + (r.timeSpent || 0));
+    }
+
+    const series = Array.from(buckets.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, seconds]) => ({ date, minutes: Math.round(seconds / 60) }));
+
+    return { granularity, days, series };
+  }
+
   static async getRecommendations(input: {
     userId: string;
     childId?: string;
