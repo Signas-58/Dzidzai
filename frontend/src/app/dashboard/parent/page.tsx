@@ -321,7 +321,7 @@ export default function ParentDashboardPage() {
                   <ResponsiveContainer>
                     <LineChart data={studyTimeSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                       <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} domain={[0, 'dataMax']} tick={{ fontSize: 12 }} />
                       <Tooltip />
                       <Line type="monotone" dataKey="minutes" stroke="#2563eb" strokeWidth={2} dot={false} />
                     </LineChart>
