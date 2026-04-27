@@ -10,6 +10,7 @@ import path from 'path';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger } from './utils/logger';
+import { prisma } from './config/prisma';
 
 // Route imports
 import authRoutes from './modules/auth/routes';
@@ -22,6 +23,14 @@ import analyticsRoutes from './modules/analytics/routes';
 dotenv.config({ path: path.resolve(__dirname, '..', '.env'), override: true });
 
 logger.info(`Groq configured: ${Boolean(process.env.GROQ_API_KEY)}`);
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception:', err);
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +71,17 @@ app.get('/api/health', (req: Request, res: Response) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
   });
+});
+
+app.get('/api/db-health', async (req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: 'OK' });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Database connection failed';
+    logger.error('DB health check failed:', e);
+    res.status(500).json({ status: 'ERROR', error: message });
+  }
 });
 
 // API routes
