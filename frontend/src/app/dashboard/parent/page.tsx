@@ -545,8 +545,8 @@ export default function ParentDashboardPage() {
           </div>
 
           <div className="mt-4 flex gap-2">
-            <Button onClick={handleCreateChild} disabled={createChildLoading}>
-              {createChildLoading ? 'Creating...' : 'Create child'}
+            <Button onClick={handleCreateChild} isLoading={createChildLoading} className="min-w-[140px]">
+              Create child
             </Button>
             <Button
               variant="outline"
@@ -569,7 +569,19 @@ export default function ParentDashboardPage() {
 
       {dashLoading ? (
         <div className="mt-6 rounded-md border border-gray-200 bg-white p-4 text-sm text-gray-600">
-          Loading analytics...
+          <span className="inline-flex items-center gap-2">
+            <svg
+              className="h-4 w-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+            Loading analytics...
+          </span>
         </div>
       ) : null}
 
