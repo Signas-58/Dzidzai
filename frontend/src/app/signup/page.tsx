@@ -90,8 +90,8 @@ export default function SignupPage() {
     >
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Tendai" />
-          <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Moyo" />
+          <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Utsakile" />
+          <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Sithole" />
         </div>
 
         <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" type="email" autoComplete="email" />
