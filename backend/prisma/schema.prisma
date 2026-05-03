@@ -26,6 +26,7 @@ model User {
   childAccount Child? @relation("ChildAccount")
   sessions Session[]
   learningActivities LearningActivity[]
+  contentFlags ContentFlag[]
 
   @@map("users")
 }
@@ -46,6 +47,7 @@ model Child {
   user   User? @relation("ChildAccount", fields: [userId], references: [id], onDelete: SetNull)
   progress UserProgress[]
   learningActivities LearningActivity[]
+  contentFlags ContentFlag[]
 
   @@map("children")
 }
@@ -99,4 +101,21 @@ model UserProgress {
   child Child @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_progress")
+}
+
+model ContentFlag {
+  id        String   @id @default(cuid())
+  userId    String
+  childId   String?
+  lessonId  String
+  reason    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child Child? @relation(fields: [childId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([childId, createdAt])
+  @@map("content_flags")
 }

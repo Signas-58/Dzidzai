@@ -101,6 +101,57 @@ router.post('/progress', authenticate, async (req: Request, res: Response) => {
   res.status(200).json({ success: true, data });
 });
 
+router.post('/flag', authenticate, async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, error: 'Authentication required' });
+    return;
+  }
+
+  const { lessonId, reason, details, childId } = req.body as {
+    lessonId?: unknown;
+    reason?: unknown;
+    details?: unknown;
+    childId?: unknown;
+  };
+
+  if (!lessonId || typeof lessonId !== 'string' || lessonId.trim().length < 2) {
+    res.status(400).json({ success: false, error: 'lessonId is required' });
+    return;
+  }
+
+  if (!reason || typeof reason !== 'string' || reason.trim().length < 2) {
+    res.status(400).json({ success: false, error: 'reason is required' });
+    return;
+  }
+
+  let resolvedChildId: string | null = null;
+  const childFromAccount = await prisma.child.findFirst({
+    where: { userId: req.user.id },
+    select: { id: true },
+  });
+  if (childFromAccount) {
+    resolvedChildId = childFromAccount.id;
+  } else if (typeof childId === 'string' && childId.trim()) {
+    const owned = await prisma.child.findFirst({
+      where: { id: childId.trim(), parentId: req.user.id },
+      select: { id: true },
+    });
+    if (owned) resolvedChildId = owned.id;
+  }
+
+  const created = await prisma.contentFlag.create({
+    data: {
+      userId: req.user.id,
+      childId: resolvedChildId,
+      lessonId: lessonId.trim(),
+      reason: reason.trim(),
+      details: typeof details === 'string' && details.trim() ? details.trim() : null,
+    },
+  });
+
+  res.status(201).json({ success: true, data: created });
+});
+
 router.get('/curriculum', (req: Request, res: Response) => {
   res.json({ message: 'Get curriculum endpoint - to be implemented' });
 });

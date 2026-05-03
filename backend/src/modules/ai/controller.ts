@@ -27,6 +27,16 @@ function isGradeLevel(v: unknown): v is GradeLevel {
   );
 }
 
+function moderationCheck(input: { subject: string; topic: string }): { blocked: boolean; reason?: string } {
+  const text = `${input.subject} ${input.topic}`.toLowerCase();
+  const blockedTerms = ['sex', 'porn', 'weapon', 'gun', 'drug', 'cocaine', 'heroin', 'suicide', 'kill', 'violence'];
+  const hit = blockedTerms.find((t) => text.includes(t));
+  if (hit) {
+    return { blocked: true, reason: `Unsafe content detected (${hit}).` };
+  }
+  return { blocked: false };
+}
+
 export class AIController {
   static async generate(req: Request, res: Response): Promise<void> {
     try {
@@ -39,6 +49,12 @@ export class AIController {
 
       if (!topic || typeof topic !== 'string' || topic.trim().length < 2) {
         res.status(400).json({ success: false, error: 'Invalid topic' });
+        return;
+      }
+
+      const moderation = moderationCheck({ subject, topic: topic.trim() });
+      if (moderation.blocked) {
+        res.status(400).json({ success: false, error: 'Content blocked by safety filter', details: moderation.reason });
         return;
       }
 

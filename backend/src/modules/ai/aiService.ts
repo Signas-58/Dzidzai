@@ -134,9 +134,23 @@ export class AIService {
       throw new Error('AI generation failed after retries');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const isQuota = msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit');
-      if (isQuota) {
-        logger.warn('AI provider unavailable (quota/rate-limit). Using mock fallback.', { message: msg });
+      const msgLower = msg.toLowerCase();
+      const isQuota = msg.includes('429') || msgLower.includes('quota') || msgLower.includes('rate limit');
+      const isNetworkOrTimeout =
+        msgLower.includes('handshake') ||
+        msgLower.includes('tls') ||
+        msgLower.includes('timeout') ||
+        msgLower.includes('timed out') ||
+        msgLower.includes('econnreset') ||
+        msgLower.includes('enotfound') ||
+        msgLower.includes('eai_again') ||
+        msgLower.includes('socket hang up');
+
+      if (isQuota || isNetworkOrTimeout) {
+        logger.warn('AI provider unavailable. Using mock fallback.', {
+          message: msg,
+          reason: isQuota ? 'quota/rate-limit' : 'network/timeout',
+        });
         const mocked = generateMock(input, rag.contextText || undefined);
         return validateAIGenerateResponse(mocked, {
           language: expectedLanguage,

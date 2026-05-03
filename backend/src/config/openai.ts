@@ -11,10 +11,16 @@ class OpenAIClient {
 
   constructor() {
     const apiKey = process.env.GROQ_API_KEY;
+
+    const timeout = Number(process.env.GROQ_TIMEOUT_MS || process.env.AI_TIMEOUT_MS || '30000');
+    const maxRetries = Number(process.env.GROQ_MAX_RETRIES || process.env.AI_MAX_RETRIES || '2');
+
     this.client = apiKey
       ? new OpenAI({
           apiKey,
           baseURL: 'https://api.groq.com/openai/v1',
+          timeout,
+          maxRetries,
         })
       : null;
   }
@@ -25,9 +31,15 @@ class OpenAIClient {
       if (!apiKey) {
         throw new Error('GROQ_API_KEY environment variable is required');
       }
+
+      const timeout = Number(process.env.GROQ_TIMEOUT_MS || process.env.AI_TIMEOUT_MS || '30000');
+      const maxRetries = Number(process.env.GROQ_MAX_RETRIES || process.env.AI_MAX_RETRIES || '2');
+
       this.client = new OpenAI({
         apiKey,
         baseURL: 'https://api.groq.com/openai/v1',
+        timeout,
+        maxRetries,
       });
     }
     return this.client;
