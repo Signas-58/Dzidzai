@@ -503,6 +503,13 @@ export default function LearnPage() {
             />
           </div>
 
+          {result && typeof result === 'object' && typeof (result as any).example === 'string' && String((result as any).example).trim() ? (
+            <div className="mt-4 rounded-lg border border-gray-200 p-4 bg-gray-50">
+              <div className="text-sm font-semibold text-gray-900">Composition</div>
+              <div className="mt-2 whitespace-pre-wrap text-sm text-gray-800">{String((result as any).example)}</div>
+            </div>
+          ) : null}
+
           <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <Button
               variant="outline"
