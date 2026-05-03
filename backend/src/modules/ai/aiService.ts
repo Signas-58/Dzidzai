@@ -77,7 +77,7 @@ export class AIService {
         const isRetry = attempt > 1;
         const retryInstruction = isRetry
           ?
-              'Regenerate the FULL response. STRICT: Return ONLY valid JSON for the schema. No markdown, no code fences, no commentary. practice_questions must contain 3–5 questions; each one must test a different skill (definition/recall, understanding/explanation, application/word problem); use different numbers/examples/contexts; do not reuse the same sentence structure; no two questions may be meaningfully equivalent.'
+              'Regenerate the FULL response. STRICT: Return ONLY valid JSON for the schema. No markdown, no code fences, no commentary. practice_questions must contain EXACTLY 10 questions; each one must test a different skill/sub-skill (definition/recall, understanding/explanation, application/word problem, example vs non-example, etc.); use different numbers/examples/contexts; do not reuse the same sentence structure; no two questions may be meaningfully equivalent.'
           : null;
 
         const attemptMessages = retryInstruction

@@ -85,6 +85,10 @@ export function validateAIGenerateResponse(
     };
   });
 
+  if (practice_questions.length !== 10) {
+    throw new AIValidationError('practice_questions must contain exactly 10 questions');
+  }
+
   const normalizedQuestions = practice_questions.map((q) => {
     const raw = q.question.trim().toLowerCase();
     // Remove leading numbering like "1." or "1)" or "q1:" to catch duplicates with cosmetic differences

@@ -28,15 +28,34 @@ function render(template: string, params: Record<string, string>): string {
 }
 
 function difficultyHintForGrade(gradeLevel: AIGenerateRequest['gradeLevel']): string {
-  const early = gradeLevel === 'ECD A' || gradeLevel === 'ECD B' || gradeLevel === 'Grade 1' || gradeLevel === 'Grade 2';
-  const mid = gradeLevel === 'Grade 3' || gradeLevel === 'Grade 4' || gradeLevel === 'Grade 5';
-  if (early) {
-    return 'Difficulty: VERY SIMPLE. Use very short sentences, simple words, and a small number of steps. Avoid long paragraphs.';
+  const isECD = gradeLevel === 'ECD A' || gradeLevel === 'ECD B';
+  const isLowerPrimary = gradeLevel === 'Grade 1' || gradeLevel === 'Grade 2' || gradeLevel === 'Grade 3';
+  if (isECD) {
+    return [
+      'Cognitive level: ECD (Early Childhood).',
+      'Difficulty: VERY SIMPLE.',
+      '- Use 1–2 short sentences per idea.',
+      '- Use concrete, familiar objects and playful examples.',
+      '- Use single-step prompts and very small numbers for Math.',
+      '- Prefer recognition/recall (point, name, match, count) over abstract reasoning.',
+    ].join(' ');
   }
-  if (mid) {
-    return 'Difficulty: MODERATE. Use simple explanations with 1–2 short paragraphs and clear everyday examples.';
+  if (isLowerPrimary) {
+    return [
+      'Cognitive level: Lower Primary (Grades 1–3).',
+      'Difficulty: SIMPLE to MODERATE.',
+      '- Use short paragraphs and clear everyday examples.',
+      '- Use mostly single-step questions; include a few 2-step application questions.',
+      '- Focus on understanding and basic application (explain in own words, use a simple scenario).',
+    ].join(' ');
   }
-  return 'Difficulty: DETAILED. Explain reasoning step-by-step, include why it works, and use a richer example while staying grade-appropriate.';
+  return [
+    'Cognitive level: Upper Primary (Grades 4–7).',
+    'Difficulty: DETAILED.',
+    '- Explain reasoning step-by-step and include “why it works”.',
+    '- Include multi-step application questions and short word problems/scenarios.',
+    '- Encourage comparison, classification, and justification (because…).',
+  ].join(' ');
 }
 
 function improveHint(improve?: boolean): string {

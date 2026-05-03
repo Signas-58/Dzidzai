@@ -101,7 +101,7 @@ function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateRe
 
   const example = pick(exampleTemplates)();
 
-  const desiredCount = band === 'early' ? 3 : band === 'mid' ? 4 : 5;
+  const desiredCount = 10;
   const practice_questions: Array<{ question: string; hint: string; answer: string }> = [];
   const seen = new Set<string>();
   let guard = 0;
@@ -186,7 +186,7 @@ function buildGeneric(input: AIGenerateRequest, ragHint?: string): AIGenerateRes
       : `Isibonelo: Lemba milongo ibili nangu itatu pa "${input.topic}".`
   );
 
-  const desiredCount = band === 'early' ? 3 : band === 'mid' ? 4 : 5;
+  const desiredCount = 10;
   const baseQuestions = [
     {
       question: langText(
@@ -240,14 +240,20 @@ function buildGeneric(input: AIGenerateRequest, ragHint?: string): AIGenerateRes
     },
   ];
 
-  const practice_questions = baseQuestions.slice(0, desiredCount).map((q) => {
+  const practice_questions = baseQuestions
+    .concat(baseQuestions)
+    .slice(0, desiredCount)
+    .map((q, idx) => {
+      const suffix = idx < baseQuestions.length ? '' : ` (${idx + 1})`;
+      const question = `${q.question}${suffix}`;
     if (band === 'early') {
       return {
         ...q,
+        question,
         hint: langText(lang, 'Pindura nemutsara mumwe.', 'Phendula ngomusho owodwa.', 'Pindula na mulongo umodzi.'),
       };
     }
-    return q;
+    return { ...q, question };
   });
 
   return {
