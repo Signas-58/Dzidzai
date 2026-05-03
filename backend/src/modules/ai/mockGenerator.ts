@@ -146,6 +146,103 @@ function buildAddition(input: AIGenerateRequest, ragHint?: string): AIGenerateRe
   };
 }
 
+function buildReadingComprehension(input: AIGenerateRequest, ragHint?: string): AIGenerateResponse {
+  const band = gradeBand(input.gradeLevel);
+  const lang = input.language;
+  const name = pick(namesByLang[lang]);
+
+  const story = langText(
+    lang,
+    band === 'early'
+      ? `Nyaya pfupi: ${name} anoenda kuchikoro mangwanani. Anoona shiri iri pamuti. Shiri inoridza rwiyo rwayo. ${name} anofara uye anoenderera mberi achienda kuchikoro.`
+      : `Nyaya pfupi: ${name} anoenda kuchikoro mangwanani. Munzira anoona shiri iri pamuti ichiridza rwiyo. Anomira kwechinguva, obva arangarira kuti haafaniri kunonoka. Anoenderera mberi achimhanya zvishoma kusvika asvika kuchikoro nenguva.`
+    ,
+    band === 'early'
+      ? `Indaba emfushane: ${name} uya esikolo ekuseni. Ubona inyoni emthini. Inyoni iyacula. ${name} uyajabula aqhubeke esikolo.`
+      : `Indaba emfushane: ${name} uya esikolo ekuseni. Emzileni ubona inyoni emthini icula. Uyama kancane, abesesikhumbuza ukuthi akafanele late. Uqhubeka ehamba ngokushesha aze afike esikolo ngesikhathi.`
+    ,
+    band === 'early'
+      ? `Ngano ifupi: ${name} uya kuchikolo mangwanani. Waona cinyoni pa muti. Cinyoni caimba. ${name} wafwaala, aende kuchikolo.`
+      : `Ngano ifupi: ${name} uya kuchikolo mangwanani. Mu nzila waona cinyoni pa muti caimba. Wema cishoma, abva arangarira kuti haafaneli kunonoka. Aenderera mberi nekukurumidza kusvika asvika kuchikolo nenguva.`
+  );
+
+  const explanation = langText(
+    lang,
+    `${ragHint ? ragHint + ' ' : ''}Nhasi tiri kuita reading comprehension. Verenga nyaya iri mu “example”, wobva wapindura mibvunzo uchishandisa zviri munyaya.`,
+    `${ragHint ? ragHint + ' ' : ''}Lamuhla senza reading comprehension. Funda indaba eku “example”, bese uphendula imibuzo usebenzisa okusembalini.`,
+    `${ragHint ? ragHint + ' ' : ''}Namhlanje tiri kuita reading comprehension. Bala ngano iri mu “example”, wozopindura mibvunzo uchishandisa zviri mungano.`
+  );
+
+  const desiredCount = 10;
+  const practice_questions: Array<{ question: string; hint: string; answer: string }> = [];
+
+  const questionBank = [
+    {
+      question: langText(lang, `Ndiani ari munyaya?`, `Ngubani osendabeni?`, `Nguni ari mungano?`),
+      hint: langText(lang, 'Tsvaga zita remwana.', 'Khangela ibizo lomntwana.', 'Funa zina lya mwana.'),
+      answer: name,
+    },
+    {
+      question: langText(lang, `Anoenda kupi ${name}?`, `Uya ngaphi u${name}?`, `${name} uya kupi?`),
+      hint: langText(lang, 'Tarisa panotaurwa kwaari kuenda.', 'Bheka lapho aya khona.', 'Bona kwaari kuenda.'),
+      answer: langText(lang, 'Kuchikoro.', 'Esikolo.', 'Kuchikolo.'),
+    },
+    {
+      question: langText(lang, 'Akaona chii munzira?', 'Ubone ini emzileni?', 'Waona chii mu nzila?'),
+      hint: langText(lang, 'Tsvaga chinhu chaakaona.', 'Khangela into ayibonileyo.', 'Funa chinhu chaakaona.'),
+      answer: langText(lang, 'Shiri iri pamuti.', 'Inyoni emthini.', 'Cinyoni pa muti.'),
+    },
+    {
+      question: langText(lang, 'Shiri yaiitei?', 'Inyoni yenzani?', 'Cinyoni caiita nzi?'),
+      hint: langText(lang, 'Tarisa zvaiitwa neshiri.', 'Bheka okwenziwa yinyoni.', 'Bona caicho cinyoni.'),
+      answer: langText(lang, 'Yairidza rwiyo.', 'Yayicula.', 'Caiimba.'),
+    },
+    {
+      question: langText(lang, 'Sei ${name} akamira kwechinguva? (tsanangura)', 'Kungani u${name} wema kancane?', 'Nkaambo nzi ${name} wema cishoma?'),
+      hint: langText(lang, 'Funga nezvaakaita paakaona shiri.', 'Cabanga ngalokho akwenzileyo nxa ebona inyoni.', 'Funga paakaona cinyoni.'),
+      answer: langText(lang, 'Akamira kuti ateerere/atarise shiri.', 'Wema ukuze alalele/abheke inyoni.', 'Wema kuti ateerere/atarise cinyoni.'),
+    },
+    {
+      question: langText(lang, 'Chii chaakayeuka kuti asaite?', 'Yini ayikhumbulayo ukuthi angayenzi?', 'Waayeuka chii kuti asaite?'),
+      hint: langText(lang, 'Pane izwi rinoti “kunonoka/late”.', 'Kukhona okukhuluma ngo “late”.', 'Pane izwi rinotaura nezve kunonoka.'),
+      answer: langText(lang, 'Kuti haafaniri kunonoka kuchikoro.', 'Ukuthi akafanele late esikolo.', 'Kuti haafaniri kunonoka kuchikolo.'),
+    },
+    {
+      question: langText(lang, 'Pakupedzisira, akasvika kuchikoro sei?', 'Ekucineni, ufike njani esikolo?', 'Pakuguma, asvika sei kuchikolo?'),
+      hint: langText(lang, 'Tarisa mashoko ekupedzisira enyaya.', 'Bheka amazwi okugcina endaba.', 'Bona mashoko ekuguma.'),
+      answer: langText(lang, 'Akasvika nenguva.', 'Ufikile ngesikhathi.', 'Asvika nenguva.'),
+    },
+    {
+      question: langText(lang, 'Nyaya iyi inotidzidzisa chii? (chidzidzo)', 'Indaba ifundisa ini? (isifundo)', 'Ngano iyi itudzidzisa chii?'),
+      hint: langText(lang, 'Funga nezvekuita zvakanaka kuchikoro.', 'Cabanga ngokwenza kahle esikolo.', 'Funga nezvekuita zvakanaka kuchikolo.'),
+      answer: langText(lang, 'Kuchengetedza nguva uye kusanonoka.', 'Ukugcina isikhathi nokungabi late.', 'Kuchengetedza nguva uye kusanonoka.'),
+    },
+    {
+      question: langText(lang, 'Tsanangura izwi rokuti “mangwanani” sezvarinoshandiswa munyaya.', 'Chaza igama elithi “ekuseni” njengoba lisetshenziswa endabeni.', 'Chaza “mangwanani” mu ngano.'),
+      hint: langText(lang, 'Rinoreva nguva yezuva.', 'Lisho isikhathi sosuku.', 'Rinoreva nguva yezuva.'),
+      answer: langText(lang, 'Nguva yekutanga kwezuva.', 'Isikhathi sokuqala sosuku.', 'Nguva yekutanga kwezuva.'),
+    },
+    {
+      question: langText(lang, 'Nyora (1) chinhu chimwe chaakaita uye (1) chaakaona.', 'Bhala (1) akwenzileyo kanye (1) akubonileyo.', 'Lemba (1) caakaaita ne (1) caakaona.'),
+      hint: langText(lang, 'Shandisa zvinyorwa zvemunyaya.', 'Sebenzisa okusembalini.', 'Shandisa zviri mungano.'),
+      answer: langText(lang, 'Akafamba kuenda kuchikoro; akaona shiri.', 'Uhambile esikolo; ubone inyoni.', 'Aenda kuchikolo; waona cinyoni.'),
+    },
+  ];
+
+  for (let i = 0; i < desiredCount; i++) {
+    practice_questions.push(questionBank[i]);
+  }
+
+  return {
+    explanation,
+    example: story,
+    practice_questions,
+    language: input.language,
+    gradeLevel: input.gradeLevel,
+    confidenceScore: confidence(),
+  };
+}
+
 function buildGeneric(input: AIGenerateRequest, ragHint?: string): AIGenerateResponse {
   const band = gradeBand(input.gradeLevel);
   const lang = input.language;
@@ -274,6 +371,9 @@ export function generateMock(input: AIGenerateRequest, contextText?: string): AI
   ]) : undefined;
 
   const topicLower = input.topic.toLowerCase();
+  if (topicLower.includes('reading comprehension') || topicLower.includes('comprehension')) {
+    return buildReadingComprehension(input, ragHint);
+  }
   if (topicLower.includes('add') || topicLower.includes('addition') || topicLower.includes('kuwedzera')) {
     return buildAddition(input, ragHint);
   }

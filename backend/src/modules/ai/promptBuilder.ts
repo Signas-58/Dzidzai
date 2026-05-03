@@ -74,6 +74,25 @@ function modeHint(input: AIGenerateRequest): string {
   return '';
 }
 
+function topicRules(input: AIGenerateRequest): string {
+  const topic = String(input.topic || '').trim().toLowerCase();
+  const isReadingComprehension =
+    topic.includes('reading comprehension') || topic.includes('reading comprehension:') || topic.includes('comprehension');
+
+  if (!isReadingComprehension) return '';
+
+  return [
+    'Topic-specific rules (READING COMPREHENSION):',
+    '- Include a short story/passage suitable for the grade level.',
+    '- Put the story/passage in the JSON "example" field (so it is clearly separated from the explanation).',
+    '- ALL 10 practice_questions MUST be based ONLY on the story/passage (no unrelated questions).',
+    '- Every answer must be directly supported by the story/passage.',
+    '- Mix question types: characters/setting, sequence of events, inference, vocabulary-in-context, main idea, and a simple moral/lesson (grade-appropriate).',
+    '- Keep the story short and age-appropriate; avoid sensitive/unsafe themes.',
+    '',
+  ].join('\n');
+}
+
 export class PromptBuilder {
   static buildGeneratePrompt(input: AIGenerateRequest, options?: { contextText?: string }): {
     system: string;
@@ -84,6 +103,7 @@ export class PromptBuilder {
 
     const difficultyHint = difficultyHintForGrade(input.gradeLevel);
     const improveMode = [improveHint(input.improve), modeHint(input)].filter(Boolean).join(' ');
+    const topicRulesBlock = topicRules(input);
 
     const contextBlock = options?.contextText
       ? `\n\nUse the following curriculum context when generating your answer:\n${options.contextText}\n\nEnd of context.\n`
@@ -97,6 +117,7 @@ export class PromptBuilder {
         language: ex.input.language,
         difficultyHint: difficultyHintForGrade(ex.input.gradeLevel),
         improveMode: '',
+        topicRules: topicRules(ex.input),
         contextBlock: '',
       });
 
@@ -115,6 +136,7 @@ export class PromptBuilder {
       language: input.language,
       difficultyHint,
       improveMode,
+      topicRules: topicRulesBlock,
       contextBlock,
     });
 
